@@ -9,6 +9,8 @@ from app.models.quotation import Quotation, QuotationLine, QuotationStatus
 from app.models.approval import Approval, ApprovalLevel
 from app.schemas.quotation import QuotationCreate, QuotationOut
 from app.services.discount_risk import calculate_blended_risk
+from app.models.approval import AuditLog
+from app.schemas.audit import AuditLogOut
 
 router = APIRouter()
 
@@ -59,3 +61,20 @@ def get_quotation(
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
     return quotation
+
+@router.get("/{quotation_id}/audit-log", response_model=list[AuditLogOut])
+def get_audit_log(
+    quotation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    quotation = db.query(Quotation).get(quotation_id)
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+
+    return (
+        db.query(AuditLog)
+        .filter_by(quotation_id=quotation_id)
+        .order_by(AuditLog.created_at.desc())
+        .all()
+    )
