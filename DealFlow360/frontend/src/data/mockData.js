@@ -50,12 +50,3 @@ export const mockApproval = {
     { level: "finance", status: "pending", reviewed_by: null, reason: null }
   ]
 };
-
-export const mockUpsellSuggestions = [
-  { id: 1, product_name: "Ergonomic Footrest", margin_delta: 450, promoted: true },
-  { id: 2, product_name: "Extended Warranty", margin_delta: 900, promoted: false },
-  { id: 3, product_name: "Desk Organizer Set", margin_delta: 200, promoted: false }
-];
-  margin: 3400,
-  risk_score: 0 // real value comes from backend's blended risk score calc — never computed client-side
-};
