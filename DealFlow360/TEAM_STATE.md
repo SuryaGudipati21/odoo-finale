@@ -3,7 +3,7 @@
 
 ## Current Architecture
 Backend: FastAPI + SQLAlchemy + PostgreSQL
-Frontend: TBD (fill in once decided)
+Frontend: React + Vite (JavaScript)
 Authentication: JWT (internal users + separate customer-portal role)
 
 ## Current Database Models
@@ -39,11 +39,11 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 ## Currently Working On
 - Surya: core auth (password hashing + JWT) — next
 - Tharachand:
-- Pardha:
+- Pardha:Quotation Builder UI working with mock data (add line, edit discount) — waiting on real GET/POST /quotations API from backend
 - Sanjay:
 
 ## Completed
--
+-Frontend scaffolded (Vite + React), Quotation Builder page renders mock quotation with editable discount and add-line form
 
 ## Decisions
 - User roles: sales_rep, sales_manager, finance, admin (enum in models/user.py)
@@ -60,7 +60,7 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 -
 
 ## Next Checkpoint
--
+- Pardha needs: GET /quotations/{id} and POST /quotations/{id}/lines contract from Surya/Tharachand to replace mockApi.js
 
 ## Open Questions
 - Customer portal login: email+password (assumed) or magic link? Affects Customer model + /auth/portal-login contract.
