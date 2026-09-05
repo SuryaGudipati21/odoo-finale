@@ -304,6 +304,17 @@ export const login = async (email, password, role = "sales_rep") => {
   };
 };
 
+export const signup = async (email, password, fullName, role = "sales_rep") => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    data: {
+      access_token: `token-${Date.now()}`,
+      user: { id: Date.now(), email, role, full_name: fullName || email.split("@")[0] },
+    },
+  };
+};
+
 export const logout = async () => {
   await delay(API_DELAY);
   return { success: true, message: "Logged out" };
