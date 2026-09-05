@@ -58,7 +58,8 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 - Field names: use `customer_id` (not `client_id`), `status` (not `state`)
 
 ## Known Issues
--
+- Frontend login attempts get "Failed to fetch" — backend server not reachable at localhost:8000.
+  Needs: confirm Surya's backend is running + correct host/port + CORS enabled for localhost:5173.
 
 ## Next Checkpoint
 - Pardha needs: GET /quotations/{id} and POST /quotations/{id}/lines contract from Surya/Tharachand to replace mockApi.js
