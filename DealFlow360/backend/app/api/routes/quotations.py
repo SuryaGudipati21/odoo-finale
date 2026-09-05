@@ -27,18 +27,6 @@ def list_quotations(
     return db.query(Quotation).order_by(Quotation.created_at.desc()).all()
 
 
-@router.get("/mine", response_model=list[QuotationOut])
-def my_quotations(
-    db: Session = Depends(get_db),
-    customer: Customer = Depends(get_current_customer),
-):
-    return (
-        db.query(Quotation)
-        .filter(Quotation.customer_id == customer.id)
-        .order_by(Quotation.created_at.desc())
-        .all()
-    )
-
 
 @router.post("", response_model=QuotationOut)
 def create_quotation(
@@ -74,6 +62,18 @@ def create_quotation(
     db.commit()
     db.refresh(quotation)
     return quotation
+
+@router.get("/mine", response_model=list[QuotationOut])
+def my_quotations(
+    db: Session = Depends(get_db),
+    customer: Customer = Depends(get_current_customer),
+):
+    return (
+        db.query(Quotation)
+        .filter(Quotation.customer_id == customer.id)
+        .order_by(Quotation.created_at.desc())
+        .all()
+    )
 
 @router.get("/{quotation_id}", response_model=QuotationOut)
 def get_quotation(

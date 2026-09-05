@@ -80,6 +80,14 @@ Authentication: JWT (internal users + separate customer-portal role)
     - Request: (empty body)
     - Response: QuotationOut — status is "CONFIRMED" or "REAPPROVAL_REQUIRED"
     - Errors: 404
+- GET /quotations
+    - Auth: any authenticated internal user (Bearer token)
+    - Response: [ { "id", "customer_id", "status", "risk_score", "lines": [...] }, ... ] — all quotations, newest first
+    - Errors: 401 if no/invalid token
+- GET /quotations/mine
+    - Auth: customer portal token only
+    - Response: same QuotationOut array shape, filtered to that customer only
+    - Errors: 401/403 if token isn't a customer token
 
 ## State Machines
 Quotation:
