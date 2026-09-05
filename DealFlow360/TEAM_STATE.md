@@ -80,6 +80,23 @@ Authentication: JWT (internal users + separate customer-portal role)
     - Request: (empty body)
     - Response: QuotationOut — status is "CONFIRMED" or "REAPPROVAL_REQUIRED"
     - Errors: 404
+- GET /quotations
+    - Auth: any authenticated internal user (Bearer token)
+    - Response: [ { "id", "customer_id", "status", "risk_score", "lines": [...] }, ... ] — all quotations, newest first
+    - Errors: 401 if no/invalid token
+- GET /quotations/mine
+    - Auth: customer portal token only
+    - Response: same QuotationOut array shape, filtered to that customer only
+    - Errors: 401/403 if token isn't a customer token
+- POST /warehouses — create warehouse (admin)
+- GET /warehouses — list warehouses
+- POST /warehouses/stock — set stock for a product at a warehouse (admin/finance)
+- POST /warehouses/quotations/{id}/fulfillment — auto-generate warehouse split + backorder
+- PATCH /warehouses/quotations/{id}/fulfillment — manual override
+- POST /subscriptions/plans — create subscription plan (admin)
+- GET /subscriptions/plans — list plans
+- POST /subscriptions/billing-schedule — attach a plan to a quotation line, generates schedule
+- POST /subscriptions/billing-schedule/{id}/cancel — cancel a subscription line
 
 ## State Machines
 Quotation:
