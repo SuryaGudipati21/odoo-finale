@@ -31,6 +31,20 @@ Authentication: JWT (internal users + separate customer-portal role)
     - Response: { "access_token": str, "token_type": "bearer" }
     - Errors:   401 { "detail": "Invalid credentials" }
 - POST /auth/portal-login — customer portal login
+- POST /quotations
+    - Auth: Bearer token (sales_rep, sales_manager, or admin)
+    - Request:  { "customer_id": int, "lines": [{ "product_id": int, "quantity": int, "unit_price": float, "discount_percent": float }] }
+    - Response: { "id": int, "customer_id": int, "status": str, "risk_score": float, "lines": [...] }
+    - Errors:   404 Customer not found, 401/403 auth
+    - GET /quotations/{id}
+    - Auth: Bearer token (any authenticated internal user)
+    - Response: same shape as above
+    - Errors: 404 Quotation not found
+- POST /approvals/{id}/action
+    - Auth: Bearer token (sales_manager for manager-level, finance for finance-level)
+    - Request:  { "action": "approve" | "reject" | "request_revision", "reason": str (optional) }
+    - Response: { "id", "quotation_id", "level", "status", "reviewed_by_id" }
+    - Errors: 404 not found, 400 already actioned / invalid action, 403 wrong role for this level
 
 ## State Machines
 Quotation:
