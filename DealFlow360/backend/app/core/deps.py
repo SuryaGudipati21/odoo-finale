@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -8,11 +8,12 @@ from app.database.session import get_db
 from app.core.security import decode_access_token
 from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = HTTPBearer()
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(creds: HTTPAuthorizationCredentials = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     try:
+        token = creds.credentials
         payload = decode_access_token(token)
         user_id = payload.get("sub")
     except JWTError:
@@ -32,8 +33,9 @@ def require_role(*allowed_roles: str):
     return checker
 
 
-def get_current_customer(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Customer:
+def get_current_customer(creds: HTTPAuthorizationCredentials = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Customer:
     try:
+        token = creds.credentials
         payload = decode_access_token(token)
         if payload.get("type") != "customer":
             raise HTTPException(status_code=403, detail="Not a customer token")

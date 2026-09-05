@@ -1,3 +1,5 @@
+from app.models import user, customer, product, pricing, discount, quotation, approval, upsell, negotiation  # noqa: F401
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
