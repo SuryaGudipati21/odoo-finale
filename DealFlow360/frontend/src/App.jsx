@@ -1,19 +1,19 @@
 // src/App.jsx
 // Owner: Shared — route definitions, wires pages together with role-based protection
-// FIXED: /portal/quotations/:id was nested inside LayoutWithNav, so customers saw
-// the internal sales Navigation bar (Quotations/Approvals/Deal Health/Config) above
-// their negotiation screen — the opposite of the "separate, restricted view"
-// requirement. Moved it to its own top-level route, same pattern as /login.
 
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
-// Pages
+// Pages — converted to light theme, each renders its own <Layout> (nav included)
 import LoginPage from "./pages/LoginPage";
 import SalesWorkspace from "./pages/SalesWorkspace";
+import QuotationsList from "./pages/QuotationsList";
 import QuotationBuilder from "./pages/QuotationBuilder";
+import ApprovalsList from "./pages/ApprovalsList";
 import ApprovalScreen from "./pages/ApprovalScreen";
 import CustomerPortal from "./pages/CustomerPortal";
+
+// Pages — not yet converted (Sanjay's/Admin's), still rely on outer nav wrapper
 import DealHealthDashboard from "./pages/DealHealthDashboard";
 import BackendConfig from "./pages/BackendConfig";
 import ReportingDashboard from "./pages/ReportingDashboard";
@@ -22,7 +22,7 @@ import ReportingDashboard from "./pages/ReportingDashboard";
 import Navigation from "./components/Navigation";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Layout wrapper that includes navigation — internal (sales-side) routes only
+// Layout wrapper for pages that DON'T have their own <Layout> yet
 function LayoutWithNav() {
   const { isAuthenticated, loading } = useAuth();
 
@@ -48,7 +48,6 @@ function LayoutWithNav() {
   );
 }
 
-// 404 Page
 function NotFound() {
   return (
     <div className="not-found-page">
@@ -66,12 +65,10 @@ function App() {
         <div className="app-container">
           <Routes>
 
-            {/* Login page - no navigation */}
+            {/* Login — no navigation */}
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Customer Portal — deliberately OUTSIDE LayoutWithNav. This must
-                stay a separate, restricted experience with no internal sales
-                nav, per the problem statement's explicit requirement. */}
+            {/* Customer Portal — separate, restricted, no internal sales nav */}
             <Route
               path="/portal/quotations/:id"
               element={
@@ -81,36 +78,50 @@ function App() {
               }
             />
 
-            {/* All internal (sales-side) authenticated routes - with navigation */}
+            {/* Converted pages — each renders its own <Layout>/<Navigation>, so NO outer wrapper here */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute roles={["sales_rep", "sales_manager", "admin"]}>
+                  <SalesWorkspace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quotations"
+              element={
+                <ProtectedRoute roles={["sales_rep", "sales_manager", "admin"]}>
+                  <QuotationsList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quotations/builder/:id?"
+              element={
+                <ProtectedRoute roles={["sales_rep", "sales_manager", "admin"]}>
+                  <QuotationBuilder />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/approvals"
+              element={
+                <ProtectedRoute roles={["sales_manager", "finance"]}>
+                  <ApprovalsList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/approvals/:id"
+              element={
+                <ProtectedRoute roles={["sales_manager", "finance"]}>
+                  <ApprovalScreen />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Not-yet-converted pages — still need the outer LayoutWithNav wrapper */}
             <Route element={<LayoutWithNav />}>
-
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute roles={["sales_rep", "sales_manager", "admin"]}>
-                    <SalesWorkspace />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/quotations/builder/:id?"
-                element={
-                  <ProtectedRoute roles={["sales_rep", "sales_manager", "admin"]}>
-                    <QuotationBuilder />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/approvals/:id"
-                element={
-                  <ProtectedRoute roles={["sales_manager", "finance"]}>
-                    <ApprovalScreen />
-                  </ProtectedRoute>
-                }
-              />
-
               <Route
                 path="/deal-health"
                 element={
@@ -119,7 +130,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
               <Route
                 path="/config"
                 element={
@@ -128,7 +138,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
               <Route
                 path="/reports"
                 element={
@@ -137,11 +146,10 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
-
             </Route>
+
           </Routes>
         </div>
       </BrowserRouter>
