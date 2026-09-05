@@ -7,7 +7,7 @@ from app.models.user import User
 from app.models.customer import Customer
 from app.models.quotation import Quotation, QuotationLine, QuotationStatus
 from app.models.approval import Approval, ApprovalLevel
-from app.schemas.quotation import QuotationCreate, QuotationOut
+from app.schemas.quotation import QuotationCreate, QuotationOut, QuotationLinesUpdate
 from app.services.discount_risk import calculate_blended_risk
 from app.models.approval import AuditLog
 from app.schemas.audit import AuditLogOut
