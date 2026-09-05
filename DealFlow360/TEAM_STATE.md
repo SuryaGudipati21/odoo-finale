@@ -3,7 +3,8 @@
 
 ## Current Architecture
 Backend: FastAPI + SQLAlchemy + PostgreSQL
-Frontend: TBD (fill in once decided)
+Frontend:  React + Vite (JavaScript)
+Frontend: React + Vite (JavaScript)
 Authentication: JWT (internal users + separate customer-portal role)
 
 ## Current Database Models
@@ -15,6 +16,7 @@ Authentication: JWT (internal users + separate customer-portal role)
 - PriceList → PriceListItem (done — per-tier pricing per product)
 - DiscountTier → DiscountTierLimit (done — order-level ceiling per tier)
 - CategoryDiscountLimit (done — line-level ceiling per product category)
+- ProductPairing (done — upsell/cross-sell rule)
 - Quotation
 - QuotationLine
 - Approval
@@ -30,7 +32,55 @@ Authentication: JWT (internal users + separate customer-portal role)
     - Request:  { "email": str, "password": str }
     - Response: { "access_token": str, "token_type": "bearer" }
     - Errors:   401 { "detail": "Invalid credentials" }
-- POST /auth/portal-login — customer portal login
+    
+- POST /auth/portal-login
+    - Request:  { "email": str, "password": str }
+    - Response: { "access_token": str, "token_type": "bearer" }
+    - Errors:   401 Invalid credentials
+
+- POST /quotations
+    - Auth: Bearer token (sales_rep, sales_manager, or admin)
+    - Request:  { "customer_id": int, "lines": [{ "product_id": int, "quantity": int, "unit_price": float, "discount_percent": float }] }
+    - Response: { "id": int, "customer_id": int, "status": str, "risk_score": float, "lines": [...] }
+    - Errors:   404 Customer not found, 401/403 auth
+    - GET /quotations/{id}
+    - Auth: Bearer token (any authenticated internal user)
+    - Response: same shape as above
+    - Errors: 404 Quotation not found
+
+- POST /approvals/{id}/action
+    - Auth: Bearer token (sales_manager for manager-level, finance for finance-level)
+    - Request:  { "action": "approve" | "reject" | "request_revision", "reason": str (optional) }
+    - Response: { "id", "quotation_id", "level", "status", "reviewed_by_id" }
+    - Errors: 404 not found, 400 already actioned / invalid action, 403 wrong role for this level
+
+- GET /quotations/{id}/audit-log
+    - Auth: Bearer token (any authenticated internal user)
+    - Response: [{ "id", "user_id", "action", "reason", "created_at" }, ...] — newest first
+    - Errors: 404 Quotation not found
+
+- PATCH /quotations/{id}/lines
+    - Auth: Bearer token (sales_rep, sales_manager, or admin)
+    - Request:  { "lines": [{ "product_id", "quantity", "unit_price", "discount_percent" }] }
+    - Response: same QuotationOut shape as POST /quotations
+    - Errors: 404 not found, 400 if quotation isn't in DRAFT (can't edit an already-approved/pending quote)
+
+- GET /quotations/{id}/upsell-suggestions
+    - Auth: Bearer token (any authenticated internal user)
+    - Response: [{ "product_id", "product_name", "margin_delta", "is_promoted" }, ...]
+    - Errors: 404 Quotation not found
+
+- POST /quotations/{id}/negotiate
+    - Auth: Bearer token (customer, must own this quotation)
+    - Request:  { "comment": str?, "proposed_discount_percent": float?, "quotation_line_id": int? }
+    - Response: { "status": "NEGOTIATION" }
+    - Errors: 404 (not found or not this customer's quotation)
+
+- POST /quotations/{id}/confirm
+    - Auth: Bearer token (customer, must own this quotation)
+    - Request: (empty body)
+    - Response: QuotationOut — status is "CONFIRMED" or "REAPPROVAL_REQUIRED"
+    - Errors: 404
 
 ## State Machines
 Quotation:
@@ -39,11 +89,13 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 ## Currently Working On
 - Surya: core auth (password hashing + JWT) — next
 - Tharachand:
-- Pardha:
+- Pardha: Quotation Builder UI working with mock data (add line, edit discount) — waiting on real GET/POST /quotations API from backend
+
+- Pardha:Quotation Builder UI working with mock data (add line, edit discount) — waiting on real GET/POST /quotations API from backend
 - Sanjay:
 
 ## Completed
--
+-Frontend scaffolded (Vite + React), Quotation Builder page renders mock quotation with editable discount and add-line form
 
 ## Decisions
 - User roles: sales_rep, sales_manager, finance, admin (enum in models/user.py)
@@ -57,10 +109,11 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 - Field names: use `customer_id` (not `client_id`), `status` (not `state`)
 
 ## Known Issues
--
+- Frontend login attempts get "Failed to fetch" — backend server not reachable at localhost:8000.
+  Needs: confirm Surya's backend is running + correct host/port + CORS enabled for localhost:5173.
 
 ## Next Checkpoint
--
+- Pardha needs: GET /quotations/{id} and POST /quotations/{id}/lines contract from Surya/Tharachand to replace mockApi.js
 
 ## Open Questions
 - Customer portal login: email+password (assumed) or magic link? Affects Customer model + /auth/portal-login contract.
