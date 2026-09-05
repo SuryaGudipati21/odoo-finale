@@ -15,6 +15,7 @@ Authentication: JWT (internal users + separate customer-portal role)
 - PriceList → PriceListItem (done — per-tier pricing per product)
 - DiscountTier → DiscountTierLimit (done — order-level ceiling per tier)
 - CategoryDiscountLimit (done — line-level ceiling per product category)
+- ProductPairing (done — upsell/cross-sell rule)
 - Quotation
 - QuotationLine
 - Approval
@@ -30,7 +31,10 @@ Authentication: JWT (internal users + separate customer-portal role)
     - Request:  { "email": str, "password": str }
     - Response: { "access_token": str, "token_type": "bearer" }
     - Errors:   401 { "detail": "Invalid credentials" }
-- POST /auth/portal-login — customer portal login
+- POST /auth/portal-login
+    - Request:  { "email": str, "password": str }
+    - Response: { "access_token": str, "token_type": "bearer" }
+    - Errors:   401 Invalid credentials
 - POST /quotations
     - Auth: Bearer token (sales_rep, sales_manager, or admin)
     - Request:  { "customer_id": int, "lines": [{ "product_id": int, "quantity": int, "unit_price": float, "discount_percent": float }] }
@@ -54,6 +58,10 @@ Authentication: JWT (internal users + separate customer-portal role)
     - Request:  { "lines": [{ "product_id", "quantity", "unit_price", "discount_percent" }] }
     - Response: same QuotationOut shape as POST /quotations
     - Errors: 404 not found, 400 if quotation isn't in DRAFT (can't edit an already-approved/pending quote)
+- GET /quotations/{id}/upsell-suggestions
+    - Auth: Bearer token (any authenticated internal user)
+    - Response: [{ "product_id", "product_name", "margin_delta", "is_promoted" }, ...]
+    - Errors: 404 Quotation not found
 
 ## State Machines
 Quotation:
