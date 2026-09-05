@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.orm import Session
 
+from app.models.customer import Customer
 from app.database.session import get_db
 from app.core.security import decode_access_token
 from app.models.user import User
@@ -29,3 +30,18 @@ def require_role(*allowed_roles: str):
             raise HTTPException(status_code=403, detail="Not authorized")
         return user
     return checker
+
+
+def get_current_customer(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Customer:
+    try:
+        payload = decode_access_token(token)
+        if payload.get("type") != "customer":
+            raise HTTPException(status_code=403, detail="Not a customer token")
+        customer_id = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    customer = db.query(Customer).filter(Customer.id == int(customer_id)).first()
+    if not customer:
+        raise HTTPException(status_code=401, detail="Customer not found")
+    return customer
