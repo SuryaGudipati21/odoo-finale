@@ -9,3 +9,12 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+class PortalLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class PortalTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
