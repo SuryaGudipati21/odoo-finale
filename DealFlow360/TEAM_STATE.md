@@ -4,6 +4,7 @@
 ## Current Architecture
 Backend: FastAPI + SQLAlchemy + PostgreSQL
 Frontend:  React + Vite (JavaScript)
+Frontend: React + Vite (JavaScript)
 Authentication: JWT (internal users + separate customer-portal role)
 
 ## Current Database Models
@@ -31,6 +32,29 @@ Authentication: JWT (internal users + separate customer-portal role)
     - Response: { "access_token": str, "token_type": "bearer" }
     - Errors:   401 { "detail": "Invalid credentials" }
 - POST /auth/portal-login — customer portal login
+- POST /quotations
+    - Auth: Bearer token (sales_rep, sales_manager, or admin)
+    - Request:  { "customer_id": int, "lines": [{ "product_id": int, "quantity": int, "unit_price": float, "discount_percent": float }] }
+    - Response: { "id": int, "customer_id": int, "status": str, "risk_score": float, "lines": [...] }
+    - Errors:   404 Customer not found, 401/403 auth
+    - GET /quotations/{id}
+    - Auth: Bearer token (any authenticated internal user)
+    - Response: same shape as above
+    - Errors: 404 Quotation not found
+- POST /approvals/{id}/action
+    - Auth: Bearer token (sales_manager for manager-level, finance for finance-level)
+    - Request:  { "action": "approve" | "reject" | "request_revision", "reason": str (optional) }
+    - Response: { "id", "quotation_id", "level", "status", "reviewed_by_id" }
+    - Errors: 404 not found, 400 already actioned / invalid action, 403 wrong role for this level
+- GET /quotations/{id}/audit-log
+    - Auth: Bearer token (any authenticated internal user)
+    - Response: [{ "id", "user_id", "action", "reason", "created_at" }, ...] — newest first
+    - Errors: 404 Quotation not found
+- PATCH /quotations/{id}/lines
+    - Auth: Bearer token (sales_rep, sales_manager, or admin)
+    - Request:  { "lines": [{ "product_id", "quantity", "unit_price", "discount_percent" }] }
+    - Response: same QuotationOut shape as POST /quotations
+    - Errors: 404 not found, 400 if quotation isn't in DRAFT (can't edit an already-approved/pending quote)
 
 ## State Machines
 Quotation:
@@ -41,6 +65,7 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 - Tharachand:
 - Pardha: Quotation Builder UI working with mock data (add line, edit discount) — waiting on real GET/POST /quotations API from backend
 
+- Pardha:Quotation Builder UI working with mock data (add line, edit discount) — waiting on real GET/POST /quotations API from backend
 - Sanjay:
 
 ## Completed
