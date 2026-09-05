@@ -49,6 +49,7 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 - User roles: sales_rep, sales_manager, finance, admin (enum in models/user.py)
 - Customer tiers: bronze, silver, gold (enum in models/customer.py)
 - Product category is a free-text string field, not a fixed enum. Frontend must fetch category list from backend (endpoint TBD), not hardcode it.
+- Discount approval thresholds: score > 0 → Manager approval, score > 10 → also Finance approval
 
 ## Do Not Change Without Team Agreement
 - Model names (see Current Database Models above)
