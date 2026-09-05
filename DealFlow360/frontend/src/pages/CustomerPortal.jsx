@@ -1,25 +1,15 @@
+// src/pages/CustomerPortal.jsx
 // Owner: Sanjay — restricted customer-facing negotiation view
-import CustomerNegotiation from '../components/CustomerNegotiation';
+// TEMP STUB by Pardha — replace with real implementation. Original was a sketch/notes,
+// not a working component, and was crashing the app (no default export).
 
-// Inside CustomerPortal page component:
-const handleNegotiationSubmit = async (negotiationData) => {
-  try {
-    const response = await api.post(
-      `/portal/quotations/${quotationId}/negotiate`,
-      negotiationData
-    );
-    // Handle success
-    showSuccessMessage('Negotiation request submitted');
-    // Refresh quotation to show updated status
-    fetchQuotation(quotationId);
-  } catch (error) {
-    showErrorMessage('Failed to submit negotiation request');
-  }
-};
+function CustomerPortal() {
+  return (
+    <div>
+      <h2>Customer Portal</h2>
+      <p>Not yet built — Sanjay's module, in progress.</p>
+    </div>
+  );
+}
 
-// In render:
-<CustomerNegotiation
-  quotation={quotationData}
-  onSubmit={handleNegotiationSubmit}
-  isSubmitting={isLoading}
-/>
+export default CustomerPortal;

@@ -210,3 +210,25 @@ export const fetchProductDetails = async (productId) => {
   await delay(API_DELAY);
   return { success: true, data: mockData.mockProducts?.[productId] };
 };
+// ========================================
+// PARDHA — QuotationBuilder-specific mock functions
+// TODO: reconcile with Sanjay's createQuotation/fetchQuotation above
+// ========================================
+
+export const getQuotation = async (id) => {
+  await delay(API_DELAY);
+  return mockData.mockQuotation;
+};
+
+export const addLineToQuotation = async (quotationId, line) => {
+  await delay(API_DELAY);
+  mockData.mockQuotation.lines.push(line);
+  return mockData.mockQuotation;
+};
+
+export const applyDiscount = async (quotationId, lineId, percent) => {
+  await delay(API_DELAY);
+  const line = mockData.mockQuotation.lines.find(l => l.id === lineId);
+  if (line) line.discount_percent = percent;
+  return mockData.mockQuotation;
+};
