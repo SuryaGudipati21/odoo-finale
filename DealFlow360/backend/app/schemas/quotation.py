@@ -7,6 +7,9 @@ class QuotationLineIn(BaseModel):
     unit_price: float
     discount_percent: float = 0
 
+class QuotationLinesUpdate(BaseModel):
+    lines: list[QuotationLineIn]
+
 
 class QuotationCreate(BaseModel):
     customer_id: int

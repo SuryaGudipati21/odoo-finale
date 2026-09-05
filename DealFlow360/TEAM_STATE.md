@@ -45,6 +45,15 @@ Authentication: JWT (internal users + separate customer-portal role)
     - Request:  { "action": "approve" | "reject" | "request_revision", "reason": str (optional) }
     - Response: { "id", "quotation_id", "level", "status", "reviewed_by_id" }
     - Errors: 404 not found, 400 already actioned / invalid action, 403 wrong role for this level
+- GET /quotations/{id}/audit-log
+    - Auth: Bearer token (any authenticated internal user)
+    - Response: [{ "id", "user_id", "action", "reason", "created_at" }, ...] — newest first
+    - Errors: 404 Quotation not found
+- PATCH /quotations/{id}/lines
+    - Auth: Bearer token (sales_rep, sales_manager, or admin)
+    - Request:  { "lines": [{ "product_id", "quantity", "unit_price", "discount_percent" }] }
+    - Response: same QuotationOut shape as POST /quotations
+    - Errors: 404 not found, 400 if quotation isn't in DRAFT (can't edit an already-approved/pending quote)
 
 ## State Machines
 Quotation:
