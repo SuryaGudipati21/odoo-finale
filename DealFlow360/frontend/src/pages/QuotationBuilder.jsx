@@ -1,16 +1,7 @@
 import { useQuotation } from "../hooks/useQuotation";
 import QuotationForm from "../components/QuotationForm";
 import UpsellPanel from "../components/UpsellPanel";
-// ...inside the component, after the table/margin:
-<UpsellPanel onAddSuggestion={(s) => handleAddLine({
-  id: Date.now(),
-  product_id: s.id,
-  product_name: s.product_name,
-  quantity: 1,
-  unit_price: 0,
-  discount_percent: 0,
-  line_total: 0
-})} />
+
 function QuotationBuilder() {
   const { quotation, handleAddLine, handleApplyDiscount } = useQuotation(1);
 
@@ -46,6 +37,19 @@ function QuotationBuilder() {
       <p>Margin: ₹{quotation.margin}</p>
 
       <QuotationForm onAddLine={handleAddLine} />
+
+      <UpsellPanel
+        quotationId={quotation.id}
+        onAddSuggestion={(s) => handleAddLine({
+          id: Date.now(),
+          product_id: s.product_id,
+          product_name: s.product_name,
+          quantity: 1,
+          unit_price: 0,
+          discount_percent: 0,
+          line_total: 0
+        })}
+      />
     </div>
   );
 }
