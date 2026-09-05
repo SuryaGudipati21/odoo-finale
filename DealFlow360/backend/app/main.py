@@ -2,7 +2,7 @@ from app.models import user, customer, product, pricing, discount, quotation, ap
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from app.api.routes import warehouses, subscriptions
 from app.api.routes import auth, quotations, approvals
 
 app = FastAPI(title="DealFlow360")
@@ -18,6 +18,8 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(quotations.router, prefix="/quotations", tags=["quotations"])
 app.include_router(approvals.router, prefix="/approvals", tags=["approvals"])
+app.include_router(warehouses.router, prefix="/warehouses", tags=["warehouses"])
+app.include_router(subscriptions.router, prefix="/subscriptions", tags=["subscriptions"])
 
 
 @app.get("/health")
