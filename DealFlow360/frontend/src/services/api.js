@@ -15,9 +15,37 @@ export async function login(email, password) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password })
   });
-  if (!res.ok) throw new Error("Invalid credentials");
+  
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Invalid email or password");
+    if (res.status === 404) throw new Error("User not found");
+    throw new Error("Login failed");
+  }
+  
+  const data = await res.json();
+  // data should have: { access_token, token_type, user: { id, email, role, full_name } }
+  localStorage.setItem("access_token", data.access_token);
+  localStorage.setItem("user_role", data.user?.role || 'sales_rep');
+  
+  return data;
+}
+
+export async function portalLogin(email, password) {
+  const res = await fetch(`${BASE_URL}/auth/portal-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Invalid email or password");
+    throw new Error("Portal login failed");
+  }
+  
   const data = await res.json();
   localStorage.setItem("access_token", data.access_token);
+  localStorage.setItem("user_role", "customer"); // Portal users are always 'customer'
+  
   return data;
 }
 
