@@ -91,3 +91,80 @@ export async function getUpsellSuggestions(quotationId) {
   if (!res.ok) throw new Error("Failed to load upsell suggestions");
   return res.json();
 }
+export async function getFulfillmentOrders() {
+  const res = await fetch(`${BASE_URL}/fulfillment/orders`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load fulfillment orders");
+  return res.json();
+}
+export async function getStock() {
+  const res = await fetch(`${BASE_URL}/fulfillment/stock`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load stock");
+  return res.json();
+}export async function getFulfillmentOrder(id) {
+  const res = await fetch(`${BASE_URL}/fulfillment/orders/${id}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Fulfillment order not found");
+  return res.json();
+}
+export async function acceptSuggestedSplit(id) {
+  const res = await fetch(`${BASE_URL}/fulfillment/orders/${id}/accept`, {
+    method: "POST", headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to accept split");
+  return res.json();
+}
+export async function manualOverrideSplit(id, allocations) {
+  const res = await fetch(`${BASE_URL}/fulfillment/orders/${id}/override`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ allocations }),
+  });
+  if (!res.ok) throw new Error("Failed to override split");
+  return res.json();
+}
+
+export async function getInvoices() {
+  const res = await fetch(`${BASE_URL}/invoices`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load invoices");
+  return res.json();
+}
+export async function getInvoice(id) {
+  const res = await fetch(`${BASE_URL}/invoices/${id}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Invoice not found");
+  return res.json();
+}
+export async function recordPayment(id, amount) {
+  const res = await fetch(`${BASE_URL}/invoices/${id}/record-payment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ amount }),
+  });
+  if (!res.ok) throw new Error("Failed to record payment");
+  return res.json();
+}
+
+export async function getSubscriptions() {
+  const res = await fetch(`${BASE_URL}/subscriptions`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load subscriptions");
+  return res.json();
+}
+export async function getBillingDetail(id) {
+  const res = await fetch(`${BASE_URL}/subscriptions/${id}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Subscription not found");
+  return res.json();
+}
+export async function modifySubscription(id, payload) {
+  const res = await fetch(`${BASE_URL}/subscriptions/${id}/modify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to modify subscription");
+  return res.json();
+}
+export async function cancelSubscription(id) {
+  const res = await fetch(`${BASE_URL}/subscriptions/${id}/cancel`, {
+    method: "POST", headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to cancel subscription");
+  return res.json();
+}

@@ -2,17 +2,21 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuotation } from "../hooks/useQuotation";
+import { useAuth } from "../context/AuthContext";
 import { mockCustomer } from "../data/mockData";
 import QuotationForm from "../components/QuotationForm";
 import UpsellPanel from "../components/UpsellPanel";
+import AuditTrail from "../components/AuditTrail";
 import Layout from "../components/Layout";
-import { formatCurrency } from "../utils/formatting";
+import { formatCurrency, formatDateTime } from "../utils/formatting";
 import { estimateBlendedRiskScore } from "../utils/riskScore";
 
 function QuotationBuilder() {
   const { id } = useParams();
   const quotationId = id ?? 1;
-  const { quotation, handleAddLine, handleApplyDiscount, handleDeleteLine } = useQuotation(quotationId);
+  const { user } = useAuth();
+  const actorName = user?.full_name || user?.email || "You";
+  const { quotation, handleAddLine, handleApplyDiscount, handleDeleteLine, handleSubmit, handleSaveDraft } = useQuotation(quotationId, actorName);
 
   const riskPreview = useMemo(() => {
     if (!quotation) return null;
@@ -37,8 +41,12 @@ function QuotationBuilder() {
       <h1 className="text-3xl font-bold text-gray-900 mb-1">
         Quotation Detail: Q-{quotation.id} ({mockCustomer.name})
       </h1>
-      <p className="text-gray-500 text-sm mb-6">
+      <p className="text-gray-500 text-sm mb-1">
         Opened by clicking a row on the Quotations list. Add products, apply discounts, review upsells.
+      </p>
+      <p className="text-gray-400 text-xs mb-6">
+        Created by <span className="font-medium text-gray-600">{quotation.created_by || "Unknown user"}</span>
+        {quotation.created_at && <> on {formatDateTime(quotation.created_at)}</>}
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -120,12 +128,30 @@ function QuotationBuilder() {
         <QuotationForm onAddLine={handleAddLine} />
       </div>
 
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-blue-600 mb-3">Who Did What</h2>
+        <AuditTrail entries={quotation.activity || []} title="Quotation Activity" />
+      </div>
+
       <div className="flex gap-3 mt-6">
-        <button className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg">Save Draft</button>
-        <button className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-150">
+        <button
+          onClick={handleSaveDraft}
+          className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg"
+        >
+          Save Draft
+        </button>
+        <button
+          onClick={() => handleSubmit(riskPreview?.blendedScore > 0)}
+          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-150"
+        >
           {riskPreview?.blendedScore > 0 ? "Submit for Approval" : "Confirm Quotation"}
         </button>
       </div>
+      {quotation.status !== "DRAFT" && (
+        <p className="text-sm text-gray-500 mt-3">
+          Current status: <span className="font-semibold text-gray-700">{quotation.status.replace(/_/g, " ")}</span>
+        </p>
+      )}
     </Layout>
   );
 }

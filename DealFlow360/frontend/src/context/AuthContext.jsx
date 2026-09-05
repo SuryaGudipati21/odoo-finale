@@ -13,12 +13,19 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     const role = localStorage.getItem('user_role');
-    
+    const storedUser = localStorage.getItem('user_info');
+
     if (token && role) {
       setIsAuthenticated(true);
       setUserRole(role);
-      // TODO: Call /auth/me endpoint to get full user info
-      // For now, assume token is valid
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          // ignore malformed stored user, fall through with role-only session
+        }
+      }
+      // TODO: Call /auth/me endpoint to get full user info once a real backend session exists
     }
     setLoading(false);
   }, []);
@@ -26,6 +33,7 @@ export function AuthProvider({ children }) {
   const login = (token, role, userInfo) => {
     localStorage.setItem('access_token', token);
     localStorage.setItem('user_role', role);
+    if (userInfo) localStorage.setItem('user_info', JSON.stringify(userInfo));
     setUser(userInfo);
     setUserRole(role);
     setIsAuthenticated(true);
@@ -34,6 +42,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user_role');
+    localStorage.removeItem('user_info');
     setUser(null);
     setUserRole(null);
     setIsAuthenticated(false);

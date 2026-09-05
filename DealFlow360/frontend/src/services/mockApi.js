@@ -169,15 +169,17 @@ export const submitNegotiation = async (quotationId, negotiation) => {
   };
 };
 
-export const confirmQuotation = async (quotationId) => {
+export const confirmQuotation = async (quotationId, actorName) => {
   await delay(API_DELAY);
+  const quotation = mockData.mockQuotationsStore[quotationId];
+  if (quotation) {
+    quotation.status = "CONFIRMED";
+    logActivity(quotation, { action: "Confirmed quotation", user: actorName || "Unknown user" });
+  }
   return {
     success: true,
     message: "Quotation confirmed",
-    data: {
-      quotation_id: quotationId,
-      status: "CONFIRMED",
-    },
+    data: quotation,
   };
 };
 
@@ -190,12 +192,51 @@ export const fetchApprovals = async () => {
   return { success: true, data: mockData.mockApprovals };
 };
 
+const APPROVAL_ACTION_MAP = {
+  approve: "approved",
+  reject: "rejected",
+  request_revision: "revision_requested",
+};
+
 export const submitApprovalAction = async (approvalId, action, reason) => {
   await delay(API_DELAY);
+
+  const status = APPROVAL_ACTION_MAP[action];
+  if (!status) throw new Error(`Unknown approval action: ${action}`);
+
+  const approval = mockData.mockApproval;
+  if (!approval) throw new Error("Approval not found");
+
+  const stepIndex = (approval.steps || []).findIndex((s) => s.level === approval.level);
+  if (stepIndex !== -1) {
+    approval.steps[stepIndex] = {
+      ...approval.steps[stepIndex],
+      status,
+      reviewed_by: approval.steps[stepIndex].reviewed_by || "You",
+      reason: reason || null,
+    };
+  }
+
+  if (status === "approved" && approval.level === "manager") {
+    approval.level = "finance";   // advance to next level
+    approval.status = "pending";
+  } else {
+    approval.status = status;     // finance approval, reject, or revision = final
+  }
+
+  const quotation = mockData.mockQuotationsStore[approval.quotation_id];
+  if (quotation) {
+    if (status === "rejected" || status === "revision_requested") {
+      quotation.status = "DRAFT";
+    } else if (status === "approved" && approval.status === "approved") {
+      quotation.status = "APPROVED";
+    }
+  }
+
   return {
     success: true,
-    message: `Approval ${action}`,
-    data: { approval_id: approvalId, status: action, reason },
+    message: `Approval ${status}`,
+    data: { approval_id: approvalId, status: approval.status, reason },
   };
 };
 
@@ -243,44 +284,104 @@ export const addUpsellToQuotation = async (quotationId, productId) => {
 // QUOTATION BUILDER API (Pardha)
 // ========================================
 
-export const getQuotation = async (id) => {
+export const getQuotation = async (id, actorName) => {
   await delay(API_DELAY);
-  const quotation = mockData.mockQuotationsStore[id];
+  let quotation = mockData.mockQuotationsStore[id];
+
+  // "new" (from the "+ New Quotation" button) never exists in the store yet —
+  // create a fresh draft on first request instead of returning null forever.
+  if (!quotation && id === "new") {
+    const now = new Date().toISOString();
+    const createdBy = actorName || "Unknown user";
+    quotation = {
+      id: `Q-${Date.now()}`,
+      customer_id: mockData.mockCustomer.id,
+      customer: mockData.mockCustomer.name,
+      status: "DRAFT",
+      lines: [],
+      margin: 0,
+      risk_score: 0,
+      created_by: createdBy,
+      created_at: now,
+      activity: [{ action: "Created quotation", user: createdBy, timestamp: now, status: "done" }],
+    };
+    mockData.mockQuotationsStore[id] = quotation;
+  }
+
   return { success: true, data: quotation || null };
 };
 
-export const addLineToQuotation = async (quotationId, line) => {
+const logActivity = (quotation, entry) => {
+  if (!quotation) return;
+  if (!Array.isArray(quotation.activity)) quotation.activity = [];
+  quotation.activity.push({ timestamp: new Date().toISOString(), status: "done", ...entry });
+};
+
+export const addLineToQuotation = async (quotationId, line, actorName) => {
   await delay(API_DELAY);
   const quotation = mockData.mockQuotationsStore[quotationId];
-  if (quotation) quotation.lines.push(line);
+  if (quotation) {
+    quotation.lines.push(line);
+    logActivity(quotation, {
+      action: "Added line",
+      user: actorName || "Unknown user",
+      reason: `${line.product_name} × ${line.quantity}`,
+    });
+  }
   return { success: true, data: quotation };
 };
 
-export const applyDiscount = async (quotationId, lineId, percent) => {
+export const applyDiscount = async (quotationId, lineId, percent, actorName) => {
   await delay(API_DELAY);
   const quotation = mockData.mockQuotationsStore[quotationId];
   const line = quotation?.lines.find((l) => l.id === lineId);
-  if (line) line.discount_percent = percent;
+  if (line) {
+    line.discount_percent = percent;
+    logActivity(quotation, {
+      action: "Applied discount",
+      user: actorName || "Unknown user",
+      reason: `${percent}% on ${line.product_name}`,
+    });
+  }
   return { success: true, data: quotation };
 };
 
-export const deleteLineFromQuotation = async (quotationId, lineId) => {
+export const deleteLineFromQuotation = async (quotationId, lineId, actorName) => {
   await delay(API_DELAY);
   const quotation = mockData.mockQuotationsStore[quotationId];
   const index = quotation?.lines.findIndex((l) => l.id === lineId) ?? -1;
-  if (quotation && index > -1) quotation.lines.splice(index, 1);
+  if (quotation && index > -1) {
+    const [removed] = quotation.lines.splice(index, 1);
+    logActivity(quotation, {
+      action: "Removed line",
+      user: actorName || "Unknown user",
+      reason: removed?.product_name,
+    });
+  }
   return { success: true, data: quotation };
 };
 
-export const submitQuotationForApproval = async (quotationId) => {
+export const submitQuotationForApproval = async (quotationId, actorName) => {
   await delay(API_DELAY);
   const quotation = mockData.mockQuotationsStore[quotationId];
-  if (quotation) quotation.status = "PENDING_APPROVAL";
+  if (quotation) {
+    quotation.status = "PENDING_APPROVAL";
+    logActivity(quotation, { action: "Submitted for approval", user: actorName || "Unknown user" });
+  }
   return {
     success: true,
     message: "Quotation submitted for approval",
     data: quotation,
   };
+};
+
+export const saveQuotationDraft = async (quotationId, actorName) => {
+  await delay(API_DELAY);
+  const quotation = mockData.mockQuotationsStore[quotationId];
+  if (quotation) {
+    logActivity(quotation, { action: "Saved draft", user: actorName || "Unknown user" });
+  }
+  return { success: true, message: "Draft saved", data: quotation };
 };
 
 // Lists every quotation for SalesWorkspace's pipeline view
@@ -341,4 +442,28 @@ export const handleApiError = (error) => {
     success: false,
     error: error.message || "An error occurred"
   };
+};
+export const fetchBillingDetail = async (id) => {
+  await delay(API_DELAY);
+  const detail = mockData.mockBillingDetails?.[id];
+  if (!detail) throw new Error("Subscription not found");
+  return { success: true, data: detail };
+};
+
+export const modifySubscription = async (id, updates) => {
+  await delay(API_DELAY);
+  const recurring = mockData.mockBillingDetails?.[id]?.recurring_lines || [];
+  const line = recurring.find((r) => r.id === Number(id));
+  if (line) Object.assign(line, updates);
+  return { success: true, message: "Subscription modified", data: line };
+};
+
+export const cancelSubscription = async (id) => {
+  await delay(API_DELAY);
+  const listEntry = (mockData.mockSubscriptions?.list || []).find((s) => s.id === Number(id));
+  if (listEntry) listEntry.status = "CANCELLED";
+  const recurring = mockData.mockBillingDetails?.[id]?.recurring_lines || [];
+  const line = recurring.find((r) => r.id === Number(id));
+  if (line) line.status = "CANCELLED";
+  return { success: true, message: "Subscription cancelled", data: { id, status: "CANCELLED" } };
 };

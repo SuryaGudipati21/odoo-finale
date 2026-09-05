@@ -13,6 +13,7 @@ export const mockQuotations = {
     variance: 7,
     risk_level: "high",
     created_at: "2024-08-24",
+    created_by: "Priya Shah",
     lines: [
       { id: 1, product: "Enterprise License", quantity: 5, price: 2000, discount: 10 },
       { id: 2, product: "Implementation Service", quantity: 1, price: 20000, discount: 20 },
@@ -30,6 +31,7 @@ export const mockQuotations = {
     variance: 4,
     risk_level: "medium",
     created_at: "2024-08-31",
+    created_by: "Rahul Nair",
     lines: [
       { id: 1, product: "Warehouse Module", quantity: 1, price: 35000, discount: 15 },
       { id: 2, product: "Training Package", quantity: 2, price: 15000, discount: 10 },
@@ -197,35 +199,34 @@ export const mockDealHealth = {
 export const mockSubscriptions = {
   list: [
     {
-      id: "SUB-001",
-      customer: "Acme Corp",
-      plan: "Enterprise Support",
-      cycle: "Monthly",
-      next_billing: "Sep 15",
+      id: 1,
+      customer_name: "Acme Corp",
+      plan_name: "Enterprise Support",
+      cycle: "MONTHLY",
+      next_bill_date: "2026-09-15",
       amount_monthly: 500,
-      status: "Active",
+      status: "ACTIVE",
     },
     {
-      id: "SUB-002",
-      customer: "Beta Industries",
-      plan: "Maintenance SLA",
-      cycle: "Quarterly",
-      next_billing: "Oct 1",
+      id: 2,
+      customer_name: "Beta Industries",
+      plan_name: "Maintenance SLA",
+      cycle: "QUARTERLY",
+      next_bill_date: "2026-10-01",
       amount_monthly: 1200,
-      status: "Active",
+      status: "ACTIVE",
     },
     {
-      id: "SUB-003",
-      customer: "Gamma Tech",
-      plan: "Premium Support",
-      cycle: "Yearly",
-      next_billing: "Nov 1",
+      id: 3,
+      customer_name: "Gamma Tech",
+      plan_name: "Premium Support",
+      cycle: "YEARLY",
+      next_bill_date: "2026-11-01",
       amount_monthly: 8333,
-      status: "Paused",
+      status: "PAUSED",
     },
   ],
 };
-
 // --- Pardha's data: QuotationBuilder mock data ---
 
 export const mockCustomer = {
@@ -238,6 +239,8 @@ export const mockQuotation = {
   id: 1,
   customer_id: 101,
   status: "DRAFT",
+  created_by: "Sales Rep",
+  created_at: "2024-09-01T09:00:00Z",
   lines: [
     {
       id: 1,
@@ -318,6 +321,21 @@ const buildUnifiedQuotation = (raw) => ({
   lines: raw.lines.map(normalizeLine),
   margin: raw.margin ?? 0,
   risk_score: raw.risk_score ?? 0,
+  created_by: raw.created_by ?? null,
+  created_at: raw.created_at ?? null,
+  // Activity trail — who did what to this quotation, in order.
+  // Seeds with a "created" entry when we know who/when; new drafts created
+  // via the "+ New Quotation" button start this list empty and grow it live.
+  activity: raw.created_by
+    ? [
+        {
+          action: "Created quotation",
+          user: raw.created_by,
+          timestamp: raw.created_at ?? null,
+          status: "done",
+        },
+      ]
+    : [],
 });
 
 export const mockQuotationsStore = {
@@ -325,4 +343,18 @@ export const mockQuotationsStore = {
   ...Object.fromEntries(
     Object.values(mockQuotations).map((q) => [q.id, buildUnifiedQuotation(q)])
   ),
+};
+export const mockBillingDetails = {
+  1: {
+    customer_name: "Acme Corp",
+    plan_name: "Enterprise Support",
+    one_time_lines: [
+      { product_name: "Implementation Service", quantity: 1, amount: 20000 },
+    ],
+    recurring_lines: [
+      { id: 1, plan_name: "Enterprise Support", cycle: "MONTHLY", next_bill_date: "2026-09-15", amount: 500, status: "ACTIVE" },
+    ],
+  },
+  2: { /* Beta Industries — same shape */ },
+  3: { /* Gamma Tech — same shape */ },
 };

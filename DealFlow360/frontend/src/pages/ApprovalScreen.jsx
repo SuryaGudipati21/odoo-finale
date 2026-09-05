@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useApprovalStatus } from "../hooks/useApprovalStatus";
 import Layout from "../components/Layout";
+import AuditTrail from "../components/AuditTrail";
 
 const STEPS = ["Submitted", "Sales Manager", "Finance", "Confirmed"];
 
@@ -76,27 +77,9 @@ function ApprovalScreen() {
         ))}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-            <tr>
-              <th className="text-left px-4 py-3">User</th>
-              <th className="text-left px-4 py-3">Action</th>
-              <th className="text-left px-4 py-3">Date</th>
-              <th className="text-left px-4 py-3">Note</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {(approval.steps || []).map((s, i) => (
-              <tr key={i}>
-                <td className="px-4 py-3">{s.reviewed_by || "—"}</td>
-                <td className="px-4 py-3 capitalize">{s.status}</td>
-                <td className="px-4 py-3 text-gray-500">—</td>
-                <td className="px-4 py-3 text-gray-500">{s.reason || "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <h2 className="text-lg font-semibold text-blue-600 mb-3">Who Approved / Reviewed This</h2>
+      <div className="mb-6">
+        <AuditTrail steps={approval.steps || []} title="Approval History" />
       </div>
 
       {approval.status === "pending" && (
