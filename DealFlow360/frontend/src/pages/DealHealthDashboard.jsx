@@ -1,7 +1,6 @@
 // Owner: Sanjay — stalled deals, anomaly alerts
 import React, { useState, useEffect } from "react";
-import DealHealthCard from "./DealHealthCard";
-// import DealHealthDashboard from "../components/DealHealthDashboard";
+import DealHealthCard from "../components/DealHealthCard";
 import { fetchDealHealth, fetchStalledDeals, fetchAnomalies } from "../services/mockApi";
 
 const DealHealthDashboard = () => {
