@@ -8,8 +8,8 @@ Authentication: JWT (internal users + separate customer-portal role)
 
 ## Current Database Models
 (add as they're created — keep names exactly as listed here)
-- User
-- Customer
+- User (done — email, hashed_password, full_name, role, is_active)
+- Customer (done — name, email, hashed_password, tier)
 - Product
 - ProductVariant
 - PriceList
@@ -33,7 +33,7 @@ Quotation:
 DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION → REAPPROVAL_REQUIRED → CONFIRMED → FULFILLMENT → COMPLETED
 
 ## Currently Working On
-- Surya:
+- Surya: core auth (password hashing + JWT) — next
 - Tharachand:
 - Pardha:
 - Sanjay:
@@ -42,7 +42,8 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 -
 
 ## Decisions
--
+- User roles: sales_rep, sales_manager, finance, admin (enum in models/user.py)
+- Customer tiers: bronze, silver, gold (enum in models/customer.py)
 
 ## Do Not Change Without Team Agreement
 - Model names (see Current Database Models above)
@@ -54,3 +55,6 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 
 ## Next Checkpoint
 -
+
+## Open Questions
+- Customer portal login: email+password (assumed) or magic link? Affects Customer model + /auth/portal-login contract.
