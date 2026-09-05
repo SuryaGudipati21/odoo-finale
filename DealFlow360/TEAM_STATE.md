@@ -10,10 +10,11 @@ Authentication: JWT (internal users + separate customer-portal role)
 (add as they're created — keep names exactly as listed here)
 - User (done — email, hashed_password, full_name, role, is_active)
 - Customer (done — name, email, hashed_password, tier)
-- Product
-- ProductVariant
-- PriceList
-- DiscountTier
+- Product (done)
+- ProductVariant (done)
+- PriceList → PriceListItem (done — per-tier pricing per product)
+- DiscountTier → DiscountTierLimit (done — order-level ceiling per tier)
+- CategoryDiscountLimit (done — line-level ceiling per product category)
 - Quotation
 - QuotationLine
 - Approval
@@ -25,7 +26,10 @@ Authentication: JWT (internal users + separate customer-portal role)
 
 ## API Contracts
 (one line per endpoint as it's built — method, path, one-line purpose)
-- POST /auth/login — internal user login
+- POST /auth/login
+    - Request:  { "email": str, "password": str }
+    - Response: { "access_token": str, "token_type": "bearer" }
+    - Errors:   401 { "detail": "Invalid credentials" }
 - POST /auth/portal-login — customer portal login
 
 ## State Machines
@@ -44,6 +48,7 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 ## Decisions
 - User roles: sales_rep, sales_manager, finance, admin (enum in models/user.py)
 - Customer tiers: bronze, silver, gold (enum in models/customer.py)
+- Product category is a free-text string field, not a fixed enum. Frontend must fetch category list from backend (endpoint TBD), not hardcode it.
 
 ## Do Not Change Without Team Agreement
 - Model names (see Current Database Models above)
