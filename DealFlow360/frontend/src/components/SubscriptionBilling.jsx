@@ -1,4 +1,6 @@
-// Owner: Sanjay — one-time + recurring lines, billing schedule
+// Owner: Sanjay — subscription management + billing schedule visualization
+// Location: frontend/src/components/SubscriptionBilling.jsx
+
 import React, { useState, useEffect } from "react";
 import { fetchBillingSchedule, updateSubscription } from "../services/mockApi";
 

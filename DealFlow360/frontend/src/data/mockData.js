@@ -1,7 +1,5 @@
 // Owner: Shared — sample products/customers/tiers for UI dev before backend seed data is ready
-
-// Mock data structure for all Sanjay's components
-// This is realistic sample data that matches backend API responses
+// Location: frontend/src/data/mockData.js
 
 export const mockQuotations = {
   "Q-2024-001": {
@@ -228,10 +226,7 @@ export const mockSubscriptions = {
   ],
 };
 
-// --- Pardha's data below: single quotation shape for QuotationBuilder/UpsellPanel ---
-// NOTE: uses numeric id, different shape from Sanjay's mockQuotations above (string-keyed).
-// TEAM IMPACT: flagged in TEAM_STATE.md — needs team decision on which ID format the real
-// backend actually uses once GET /quotations/{id} is fully wired.
+// --- Pardha's data: QuotationBuilder mock data ---
 
 export const mockCustomer = {
   id: 101,
@@ -282,7 +277,52 @@ export const mockApproval = {
 };
 
 export const mockUpsellSuggestions = [
-  { id: 1, product_name: "Ergonomic Footrest", margin_delta: 450, promoted: true },
-  { id: 2, product_name: "Extended Warranty", margin_delta: 900, promoted: false },
-  { id: 3, product_name: "Desk Organizer Set", margin_delta: 200, promoted: false }
+  { id: 1, product_id: 6, product_name: "Ergonomic Footrest", category: "Hardware", unit_price: 1500, margin_delta: 450, promoted: true },
+  { id: 2, product_id: 7, product_name: "Extended Warranty", category: "Services", unit_price: 3000, margin_delta: 900, promoted: false },
+  { id: 3, product_id: 8, product_name: "Desk Organizer Set", category: "Hardware", unit_price: 800, margin_delta: 200, promoted: false },
 ];
+
+export const mockProducts = [
+  { id: 1, name: "Enterprise License", price: 2000, category: "Software", margin: 1200 },
+  { id: 2, name: "Implementation Service", price: 20000, category: "Services", margin: 8000 },
+  { id: 3, name: "Support Plan", price: 1000, category: "Services", margin: 600 },
+  { id: 4, name: "Warehouse Module", price: 35000, category: "Software", margin: 17500 },
+  { id: 5, name: "Training Package", price: 15000, category: "Services", margin: 7500 },
+];
+
+export const mockApprovals = [
+  mockApproval
+];
+
+const normalizeLine = (line, idx) => {
+  const unitPrice = line.unit_price ?? line.price ?? 0;
+  const discountPercent = line.discount_percent ?? line.discount ?? 0;
+  const quantity = line.quantity ?? 1;
+  return {
+    id: line.id ?? idx + 1,
+    product_id: line.product_id ?? null,
+    product_name: line.product_name ?? line.product,
+    category: line.category ?? "General",
+    quantity,
+    unit_price: unitPrice,
+    discount_percent: discountPercent,
+    line_total: Math.round(unitPrice * quantity * (1 - discountPercent / 100)),
+  };
+};
+
+const buildUnifiedQuotation = (raw) => ({
+  id: raw.id,
+  customer_id: raw.customer_id ?? mockCustomer.id,
+  customer: raw.customer ?? mockCustomer.name,
+  status: raw.status,
+  lines: raw.lines.map(normalizeLine),
+  margin: raw.margin ?? 0,
+  risk_score: raw.risk_score ?? 0,
+});
+
+export const mockQuotationsStore = {
+  [mockQuotation.id]: buildUnifiedQuotation(mockQuotation),
+  ...Object.fromEntries(
+    Object.values(mockQuotations).map((q) => [q.id, buildUnifiedQuotation(q)])
+  ),
+};

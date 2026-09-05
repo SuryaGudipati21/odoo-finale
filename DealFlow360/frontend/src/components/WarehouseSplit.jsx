@@ -1,4 +1,6 @@
 // Owner: Sanjay — fulfillment split visualization + manual override
+// Location: frontend/src/components/WarehouseSplit.jsx
+
 import React, { useState, useEffect } from "react";
 import { fetchWarehouseSplit, confirmWarehouseSplit } from "../services/mockApi";
 

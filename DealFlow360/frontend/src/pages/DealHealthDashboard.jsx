@@ -1,4 +1,6 @@
-// Owner: Sanjay — stalled deals, anomaly alerts
+// Owner: Sanjay — main deal health dashboard with metrics, stalled deals, and anomalies
+// Location: frontend/src/pages/DealHealthDashboard.jsx
+
 import React, { useState, useEffect } from "react";
 import DealHealthCard from "../components/DealHealthCard";
 import { fetchDealHealth, fetchStalledDeals, fetchAnomalies } from "../services/mockApi";
@@ -334,7 +336,7 @@ const DealHealthDashboard = () => {
               <h3 className="text-xl font-bold text-white">{selectedDeal.customer}</h3>
               <button
                 onClick={() => setSelectedDeal(null)}
-                className="text-gray-400 hover:text-white transition-colors duration-200"
+                className="text-gray-400 hover:text-white transition-colors duration-200 text-xl"
               >
                 ✕
               </button>
@@ -363,13 +365,26 @@ const DealHealthDashboard = () => {
                 <span className="text-gray-400">Last Activity:</span>
                 <span className="text-gray-300">{selectedDeal.last_activity}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Priority:</span>
+                <span className={`font-semibold ${
+                  selectedDeal.priority === "high" ? "text-red-400" :
+                  selectedDeal.priority === "medium" ? "text-amber-400" :
+                  "text-blue-400"
+                }`}>
+                  {selectedDeal.priority.charAt(0).toUpperCase() + selectedDeal.priority.slice(1)}
+                </span>
+              </div>
             </div>
 
             <div className="mt-6 pt-6 border-t border-gray-700/50 space-y-2">
               <button className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200">
                 View Full Deal
               </button>
-              <button className="w-full px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold rounded-lg transition-colors duration-200">
+              <button
+                onClick={() => setSelectedDeal(null)}
+                className="w-full px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold rounded-lg transition-colors duration-200"
+              >
                 Close
               </button>
             </div>

@@ -1,4 +1,6 @@
-// Owner: Sanjay — comment/counter-discount/confirm, used in CustomerPortal
+// Owner: Sanjay — customer portal negotiation form with discount proposals
+// Location: frontend/src/components/CustomerNegotiation.jsx
+
 import React, { useState, useEffect } from "react";
 import { fetchQuotationDetail, submitNegotiation } from "../services/mockApi";
 

@@ -1,4 +1,6 @@
-// Owner: Sanjay — single alert card, used in DealHealthDashboard
+// Owner: Sanjay — single metric card component, used in DealHealthDashboard
+// Location: frontend/src/components/DealHealthCard.jsx
+
 import React from "react";
 
 const DealHealthCard = ({ 

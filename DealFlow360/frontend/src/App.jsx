@@ -1,5 +1,9 @@
 // src/App.jsx
 // Owner: Shared — route definitions, wires pages together with role-based protection
+// FIXED: /portal/quotations/:id was nested inside LayoutWithNav, so customers saw
+// the internal sales Navigation bar (Quotations/Approvals/Deal Health/Config) above
+// their negotiation screen — the opposite of the "separate, restricted view"
+// requirement. Moved it to its own top-level route, same pattern as /login.
 
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -18,7 +22,7 @@ import ReportingDashboard from "./pages/ReportingDashboard";
 import Navigation from "./components/Navigation";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Layout wrapper that includes navigation
+// Layout wrapper that includes navigation — internal (sales-side) routes only
 function LayoutWithNav() {
   const { isAuthenticated, loading } = useAuth();
 
@@ -37,7 +41,6 @@ function LayoutWithNav() {
   return (
     <>
       <Navigation />
-
       <main className="main-content">
         <Outlet />
       </main>
@@ -66,32 +69,39 @@ function App() {
             {/* Login page - no navigation */}
             <Route path="/login" element={<LoginPage />} />
 
-            {/* All authenticated routes - with navigation */}
+            {/* Customer Portal — deliberately OUTSIDE LayoutWithNav. This must
+                stay a separate, restricted experience with no internal sales
+                nav, per the problem statement's explicit requirement. */}
+            <Route
+              path="/portal/quotations/:id"
+              element={
+                <ProtectedRoute roles={["customer"]}>
+                  <CustomerPortal />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* All internal (sales-side) authenticated routes - with navigation */}
             <Route element={<LayoutWithNav />}>
 
-              {/* Dashboard */}
               <Route
                 path="/dashboard"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute roles={["sales_rep", "sales_manager", "admin"]}>
                     <SalesWorkspace />
                   </ProtectedRoute>
                 }
               />
 
-              {/* Quotations */}
               <Route
                 path="/quotations/builder/:id?"
                 element={
-                  <ProtectedRoute
-                    roles={["sales_rep", "sales_manager", "admin"]}
-                  >
+                  <ProtectedRoute roles={["sales_rep", "sales_manager", "admin"]}>
                     <QuotationBuilder />
                   </ProtectedRoute>
                 }
               />
 
-              {/* Approvals */}
               <Route
                 path="/approvals/:id"
                 element={
@@ -101,17 +111,6 @@ function App() {
                 }
               />
 
-              {/* Customer Portal */}
-              <Route
-                path="/portal/quotations/:id"
-                element={
-                  <ProtectedRoute roles={["customer"]}>
-                    <CustomerPortal />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Deal Health Dashboard */}
               <Route
                 path="/deal-health"
                 element={
@@ -121,7 +120,6 @@ function App() {
                 }
               />
 
-              {/* Configuration */}
               <Route
                 path="/config"
                 element={
@@ -131,25 +129,16 @@ function App() {
                 }
               />
 
-              {/* Reports */}
               <Route
                 path="/reports"
                 element={
-                  <ProtectedRoute
-                    roles={["sales_manager", "finance", "admin"]}
-                  >
+                  <ProtectedRoute roles={["sales_manager", "finance", "admin"]}>
                     <ReportingDashboard />
                   </ProtectedRoute>
                 }
               />
 
-              {/* Default redirect */}
-              <Route
-                path="/"
-                element={<Navigate to="/dashboard" replace />}
-              />
-
-              {/* 404 */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
 
             </Route>

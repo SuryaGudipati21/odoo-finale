@@ -1,4 +1,5 @@
-// Mock API service - matches backend API contracts
+// Owner: Shared — Mock API service matching backend API contracts
+// Location: frontend/src/services/mockApi.js
 // Replace these with real API calls when backend is ready
 
 import * as mockData from "../data/mockData.js";
@@ -77,7 +78,7 @@ export const fetchQuotationDetail = async (quotationId) => {
 };
 
 // ========================================
-// WAREHOUSE SPLIT API
+// WAREHOUSE SPLIT API (Sanjay)
 // ========================================
 
 export const fetchWarehouseSplit = async (quotationId) => {
@@ -97,7 +98,7 @@ export const confirmWarehouseSplit = async (quotationId, splits) => {
 };
 
 // ========================================
-// BILLING SCHEDULE API
+// BILLING SCHEDULE API (Sanjay)
 // ========================================
 
 export const fetchBillingSchedule = async (quotationId) => {
@@ -117,7 +118,7 @@ export const updateSubscription = async (quotationId, updates) => {
 };
 
 // ========================================
-// DEAL HEALTH API
+// DEAL HEALTH API (Sanjay)
 // ========================================
 
 export const fetchDealHealth = async () => {
@@ -142,7 +143,7 @@ export const fetchStalledDeals = async () => {
 };
 
 // ========================================
-// SUBSCRIPTIONS API
+// SUBSCRIPTIONS API (Sanjay)
 // ========================================
 
 export const fetchSubscriptions = async () => {
@@ -151,7 +152,7 @@ export const fetchSubscriptions = async () => {
 };
 
 // ========================================
-// CUSTOMER NEGOTIATION API
+// CUSTOMER NEGOTIATION API (Sanjay)
 // ========================================
 
 export const submitNegotiation = async (quotationId, negotiation) => {
@@ -162,6 +163,7 @@ export const submitNegotiation = async (quotationId, negotiation) => {
     data: {
       quotation_id: quotationId,
       status: "NEGOTIATION",
+      submitted_at: new Date().toISOString(),
       ...negotiation,
     },
   };
@@ -180,7 +182,7 @@ export const confirmQuotation = async (quotationId) => {
 };
 
 // ========================================
-// APPROVAL API
+// APPROVAL API (Pardha)
 // ========================================
 
 export const fetchApprovals = async () => {
@@ -197,8 +199,16 @@ export const submitApprovalAction = async (approvalId, action, reason) => {
   };
 };
 
+export const fetchApprovalDetail = async (approvalId) => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    data: mockData.mockApproval || { error: "Not found" }
+  };
+};
+
 // ========================================
-// PRODUCTS API
+// PRODUCTS API (Pardha)
 // ========================================
 
 export const fetchProducts = async () => {
@@ -210,25 +220,114 @@ export const fetchProductDetails = async (productId) => {
   await delay(API_DELAY);
   return { success: true, data: mockData.mockProducts?.[productId] };
 };
+
 // ========================================
-// PARDHA — QuotationBuilder-specific mock functions
-// TODO: reconcile with Sanjay's createQuotation/fetchQuotation above
+// UPSELL SUGGESTIONS API (Pardha)
+// ========================================
+
+export const fetchUpsellSuggestions = async (quotationId) => {
+  await delay(API_DELAY);
+  return { success: true, data: mockData.mockUpsellSuggestions };
+};
+
+export const addUpsellToQuotation = async (quotationId, productId) => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    message: "Upsell added to quotation",
+    data: { quotation_id: quotationId, product_id: productId }
+  };
+};
+
+// ========================================
+// QUOTATION BUILDER API (Pardha)
 // ========================================
 
 export const getQuotation = async (id) => {
   await delay(API_DELAY);
-  return mockData.mockQuotation;
+  const quotation = mockData.mockQuotationsStore[id];
+  return { success: true, data: quotation || null };
 };
 
 export const addLineToQuotation = async (quotationId, line) => {
   await delay(API_DELAY);
-  mockData.mockQuotation.lines.push(line);
-  return mockData.mockQuotation;
+  const quotation = mockData.mockQuotationsStore[quotationId];
+  if (quotation) quotation.lines.push(line);
+  return { success: true, data: quotation };
 };
 
 export const applyDiscount = async (quotationId, lineId, percent) => {
   await delay(API_DELAY);
-  const line = mockData.mockQuotation.lines.find(l => l.id === lineId);
+  const quotation = mockData.mockQuotationsStore[quotationId];
+  const line = quotation?.lines.find((l) => l.id === lineId);
   if (line) line.discount_percent = percent;
-  return mockData.mockQuotation;
+  return { success: true, data: quotation };
+};
+
+export const deleteLineFromQuotation = async (quotationId, lineId) => {
+  await delay(API_DELAY);
+  const quotation = mockData.mockQuotationsStore[quotationId];
+  const index = quotation?.lines.findIndex((l) => l.id === lineId) ?? -1;
+  if (quotation && index > -1) quotation.lines.splice(index, 1);
+  return { success: true, data: quotation };
+};
+
+export const submitQuotationForApproval = async (quotationId) => {
+  await delay(API_DELAY);
+  const quotation = mockData.mockQuotationsStore[quotationId];
+  if (quotation) quotation.status = "PENDING_APPROVAL";
+  return {
+    success: true,
+    message: "Quotation submitted for approval",
+    data: quotation,
+  };
+};
+
+// Lists every quotation for SalesWorkspace's pipeline view
+export const listQuotations = async () => {
+  await delay(API_DELAY);
+  return { success: true, data: Object.values(mockData.mockQuotationsStore) };
+};
+
+// ========================================
+// AUTHENTICATION API (Shared)
+// ========================================
+
+export const login = async (email, password, role = "sales_rep") => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    data: {
+      access_token: `token-${Date.now()}`,
+      user: { id: 1, email, role, full_name: email.split("@")[0] },
+    },
+  };
+};
+
+export const logout = async () => {
+  await delay(API_DELAY);
+  return { success: true, message: "Logged out" };
+};
+
+export const portalLogin = async (email) => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    data: {
+      token: `portal-token-${Date.now()}`,
+      user: { id: 1, email, role: "customer" }
+    }
+  };
+};
+
+// ========================================
+// UTILITY FUNCTION
+// ========================================
+
+export const handleApiError = (error) => {
+  console.error("API Error:", error);
+  return {
+    success: false,
+    error: error.message || "An error occurred"
+  };
 };

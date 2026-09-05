@@ -1,13 +1,27 @@
 // Owner: Pardha — holds quotation/cart state, syncs with backend via services/api.js
 // src/hooks/useQuotation.js
+// FIXED: was importing the wrong `addLine` (a generic mockApi export that returns
+// a single line, not the full quotation) — switched to `addLineToQuotation`,
+// which is the one that actually mutates and returns the whole quotation.
+
 import { useState, useEffect, useCallback } from "react";
-import { getQuotation, addLine, applyDiscount } from "../services/mockApi";
+import {
+  getQuotation,
+  addLineToQuotation,
+  applyDiscount,
+  deleteLineFromQuotation,
+} from "../services/mockApi";
 
 export function useQuotation(id) {
   const [quotation, setQuotation] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
-    getQuotation(id).then(setQuotation);
+    if (!id) return;
+    setLoading(true);
+    getQuotation(id)
+      .then((res) => setQuotation(res.data))
+      .finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -15,14 +29,19 @@ export function useQuotation(id) {
   }, [refresh]);
 
   const handleAddLine = async (line) => {
-    const updated = await addLine(id, line);
-    setQuotation({ ...updated });
+    const res = await addLineToQuotation(id, line);
+    setQuotation({ ...res.data });
   };
 
   const handleApplyDiscount = async (lineId, percent) => {
-    const updated = await applyDiscount(id, lineId, percent);
-    setQuotation({ ...updated });
+    const res = await applyDiscount(id, lineId, percent);
+    setQuotation({ ...res.data });
   };
 
-  return { quotation, handleAddLine, handleApplyDiscount };
+  const handleDeleteLine = async (lineId) => {
+    const res = await deleteLineFromQuotation(id, lineId);
+    setQuotation({ ...res.data });
+  };
+
+  return { quotation, loading, handleAddLine, handleApplyDiscount, handleDeleteLine };
 }
