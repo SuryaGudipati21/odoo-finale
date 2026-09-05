@@ -42,6 +42,7 @@ class QuotationLine(Base):
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)
     discount_percent = Column(Float, nullable=False, default=0)
+    subscription_plan_id = Column(Integer, ForeignKey("subscription_plans.id"), nullable=True)
 
     quotation = relationship("Quotation", back_populates="lines")
     product = relationship("Product")
