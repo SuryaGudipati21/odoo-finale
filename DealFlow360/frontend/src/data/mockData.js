@@ -227,3 +227,62 @@ export const mockSubscriptions = {
     },
   ],
 };
+
+// --- Pardha's data below: single quotation shape for QuotationBuilder/UpsellPanel ---
+// NOTE: uses numeric id, different shape from Sanjay's mockQuotations above (string-keyed).
+// TEAM IMPACT: flagged in TEAM_STATE.md — needs team decision on which ID format the real
+// backend actually uses once GET /quotations/{id} is fully wired.
+
+export const mockCustomer = {
+  id: 101,
+  name: "Acme Corp",
+  tier: "gold"
+};
+
+export const mockQuotation = {
+  id: 1,
+  customer_id: 101,
+  status: "DRAFT",
+  lines: [
+    {
+      id: 1,
+      product_id: 5,
+      product_name: "Office Chair",
+      category: "Hardware",
+      quantity: 2,
+      unit_price: 3000,
+      discount_percent: 5,
+      line_total: 5700
+    },
+    {
+      id: 2,
+      product_id: 8,
+      product_name: "Onboarding Setup",
+      category: "Services",
+      quantity: 1,
+      unit_price: 8000,
+      discount_percent: 12,
+      line_total: 7040
+    }
+  ],
+  margin: 1200,
+  risk_score: 0
+};
+
+export const mockApproval = {
+  id: 1,
+  quotation_id: 1,
+  level: "finance",
+  status: "pending",
+  blended_risk_score: 14,
+  steps: [
+    { level: "manager", status: "approved", reviewed_by: "Sales Manager", reason: null },
+    { level: "finance", status: "pending", reviewed_by: null, reason: null }
+  ]
+};
+
+export const mockUpsellSuggestions = [
+  { id: 1, product_name: "Ergonomic Footrest", margin_delta: 450, promoted: true },
+  { id: 2, product_name: "Extended Warranty", margin_delta: 900, promoted: false },
+  { id: 3, product_name: "Desk Organizer Set", margin_delta: 200, promoted: false }
+];

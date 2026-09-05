@@ -4,7 +4,6 @@
 ## Current Architecture
 Backend: FastAPI + SQLAlchemy + PostgreSQL
 Frontend:  React + Vite (JavaScript)
-Frontend: React + Vite (JavaScript)
 Authentication: JWT (internal users + separate customer-portal role)
 
 ## Current Database Models
@@ -91,7 +90,6 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 - Tharachand:
 - Pardha: Quotation Builder UI working with mock data (add line, edit discount) — waiting on real GET/POST /quotations API from backend
 
-- Pardha:Quotation Builder UI working with mock data (add line, edit discount) — waiting on real GET/POST /quotations API from backend
 - Sanjay:
 
 ## Completed
@@ -117,3 +115,8 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 
 ## Open Questions
 - Customer portal login: email+password (assumed) or magic link? Affects Customer model + /auth/portal-login contract.
+- mockData.js now has two different Quotation shapes: Sanjay's mockQuotations (string IDs
+  like "Q-2024-001", flat fields) vs Pardha's mockQuotation (numeric id, nested per contract
+  in API Contracts section). Need to confirm which shape matches the real backend response
+  before final integration — likely Pardha's, since it matches the documented POST/GET
+  /quotations contract, but worth confirming with Surya.

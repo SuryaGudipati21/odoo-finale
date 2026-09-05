@@ -1,23 +1,22 @@
+// src/App.jsx
 // Owner: Shared — route definitions, wires pages together with role-based protection
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 
 // Pages
-import LoginPage from './pages/LoginPage';
-import SalesWorkspace from './pages/SalesWorkspace';
-import QuotationBuilder from './pages/QuotationBuilder';
-import ApprovalScreen from './pages/ApprovalScreen';
-import CustomerPortal from './pages/CustomerPortal';
-import DealHealthDashboard from './pages/DealHealthDashboard';
-import BackendConfig from './pages/BackendConfig';
-import ReportingDashboard from './pages/ReportingDashboard';
+import LoginPage from "./pages/LoginPage";
+import SalesWorkspace from "./pages/SalesWorkspace";
+import QuotationBuilder from "./pages/QuotationBuilder";
+import ApprovalScreen from "./pages/ApprovalScreen";
+import CustomerPortal from "./pages/CustomerPortal";
+import DealHealthDashboard from "./pages/DealHealthDashboard";
+import BackendConfig from "./pages/BackendConfig";
+import ReportingDashboard from "./pages/ReportingDashboard";
 
 // Components
-import Navigation from './components/Navigation';
-import ProtectedRoute from './components/ProtectedRoute';
-
-// Auth Context
-import { AuthProvider } from './context/AuthContext';
+import Navigation from "./components/Navigation";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Layout wrapper that includes navigation
 function LayoutWithNav() {
@@ -38,6 +37,7 @@ function LayoutWithNav() {
   return (
     <>
       <Navigation />
+
       <main className="main-content">
         <Outlet />
       </main>
@@ -62,11 +62,13 @@ function App() {
       <BrowserRouter>
         <div className="app-container">
           <Routes>
-            {/* Login page - no nav */}
+
+            {/* Login page - no navigation */}
             <Route path="/login" element={<LoginPage />} />
 
-            {/* All other routes - with nav */}
+            {/* All authenticated routes - with navigation */}
             <Route element={<LayoutWithNav />}>
+
               {/* Dashboard */}
               <Route
                 path="/dashboard"
@@ -81,7 +83,9 @@ function App() {
               <Route
                 path="/quotations/builder/:id?"
                 element={
-                  <ProtectedRoute roles={['sales_rep', 'sales_manager', 'admin']}>
+                  <ProtectedRoute
+                    roles={["sales_rep", "sales_manager", "admin"]}
+                  >
                     <QuotationBuilder />
                   </ProtectedRoute>
                 }
@@ -91,7 +95,7 @@ function App() {
               <Route
                 path="/approvals/:id"
                 element={
-                  <ProtectedRoute roles={['sales_manager', 'finance']}>
+                  <ProtectedRoute roles={["sales_manager", "finance"]}>
                     <ApprovalScreen />
                   </ProtectedRoute>
                 }
@@ -101,7 +105,7 @@ function App() {
               <Route
                 path="/portal/quotations/:id"
                 element={
-                  <ProtectedRoute roles={['customer']}>
+                  <ProtectedRoute roles={["customer"]}>
                     <CustomerPortal />
                   </ProtectedRoute>
                 }
@@ -111,7 +115,7 @@ function App() {
               <Route
                 path="/deal-health"
                 element={
-                  <ProtectedRoute roles={['sales_manager', 'admin']}>
+                  <ProtectedRoute roles={["sales_manager", "admin"]}>
                     <DealHealthDashboard />
                   </ProtectedRoute>
                 }
@@ -121,7 +125,7 @@ function App() {
               <Route
                 path="/config"
                 element={
-                  <ProtectedRoute roles={['admin']}>
+                  <ProtectedRoute roles={["admin"]}>
                     <BackendConfig />
                   </ProtectedRoute>
                 }
@@ -131,17 +135,23 @@ function App() {
               <Route
                 path="/reports"
                 element={
-                  <ProtectedRoute roles={['sales_manager', 'finance', 'admin']}>
+                  <ProtectedRoute
+                    roles={["sales_manager", "finance", "admin"]}
+                  >
                     <ReportingDashboard />
                   </ProtectedRoute>
                 }
               />
 
               {/* Default redirect */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="/"
+                element={<Navigate to="/dashboard" replace />}
+              />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
+
             </Route>
           </Routes>
         </div>

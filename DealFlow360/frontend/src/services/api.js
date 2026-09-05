@@ -84,3 +84,10 @@ export async function approvalAction(approvalId, action, reason) {
   if (!res.ok) throw new Error("Approval action failed");
   return res.json();
 }
+export async function getUpsellSuggestions(quotationId) {
+  const res = await fetch(`${BASE_URL}/quotations/${quotationId}/upsell-suggestions`, {
+    headers: authHeaders()
+  });
+  if (!res.ok) throw new Error("Failed to load upsell suggestions");
+  return res.json();
+}

@@ -17,12 +17,16 @@ function LoginPage({ onLoginSuccess }) {
     setSubmitting(true);
     setError(null);
     try {
-      const response = await login(email, password);
+      const response = await login(email, password); // Call from api.js
       
+      // Extract role from response and store
       const userRole = response.role || response.user?.role || 'sales_rep';
       authLogin(response.access_token, userRole, response.user);
 
-      navigate('/dashboard');
+      // Redirect to dashboard
+      const onLoginSuccess = () => {  navigate('/dashboard'); };
+      onLoginSuccess?.();
+      // If no onLoginSuccess, redirect via router (handled by Router component)
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
@@ -57,6 +61,7 @@ function LoginPage({ onLoginSuccess }) {
           <p><strong>Demo Credentials:</strong></p>
           <p>Email: rep@example.com</p>
           <p>Password: password123</p>
+          <p><strong>Roles:</strong> sales_rep, sales_manager, finance, admin</p>
         </div>
       </form>
     </div>

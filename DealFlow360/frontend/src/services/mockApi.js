@@ -1,4 +1,3 @@
-// Owner: Shared — fallback fake responses matching the same shape as api.js, for UI dev before backend endpoints exist.
 // Mock API service - matches backend API contracts
 // Replace these with real API calls when backend is ready
 
@@ -74,79 +73,6 @@ export const fetchQuotationDetail = async (quotationId) => {
   return {
     success: true,
     data: quotation || { error: "Not found" }
-  };
-};
-
-export const applyDiscount = async (quotationId, lineId, discountPercent) => {
-  await delay(API_DELAY);
-  return {
-    success: true,
-    data: {
-      line_id: lineId,
-      discount_percent: discountPercent,
-      updated_at: new Date().toISOString()
-    }
-  };
-};
-
-export const updateLineQuantity = async (quotationId, lineId, quantity) => {
-  await delay(API_DELAY);
-  return {
-    success: true,
-    data: {
-      line_id: lineId,
-      quantity: quantity,
-      updated_at: new Date().toISOString()
-    }
-  };
-};
-
-export const calculateMargin = async (quotationId) => {
-  await delay(API_DELAY);
-  return {
-    success: true,
-    data: {
-      quotation_id: quotationId,
-      margin_percent: 35,
-      margin_amount: 5000
-    }
-  };
-};
-
-export const calculateRiskScore = async (quotationId) => {
-  await delay(API_DELAY);
-  return {
-    success: true,
-    data: {
-      quotation_id: quotationId,
-      blended_risk_score: 45,
-      needs_approval: true,
-      approval_level: "manager_finance"
-    }
-  };
-};
-
-export const applyLineDiscount = async (quotationId, lineId, discountPercent) => {
-  await delay(API_DELAY);
-  return {
-    success: true,
-    data: {
-      line_id: lineId,
-      discount_percent: discountPercent,
-      line_total: 1800
-    }
-  };
-};
-
-export const submitQuotationForApproval = async (quotationId) => {
-  await delay(API_DELAY);
-  return {
-    success: true,
-    message: "Quotation submitted for approval",
-    data: {
-      quotation_id: quotationId,
-      status: "PENDING_APPROVAL"
-    }
   };
 };
 
@@ -259,7 +185,7 @@ export const confirmQuotation = async (quotationId) => {
 
 export const fetchApprovals = async () => {
   await delay(API_DELAY);
-  return { success: true, data: mockData.mockApprovals || [] };
+  return { success: true, data: mockData.mockApprovals };
 };
 
 export const submitApprovalAction = async (approvalId, action, reason) => {
@@ -283,4 +209,26 @@ export const fetchProducts = async () => {
 export const fetchProductDetails = async (productId) => {
   await delay(API_DELAY);
   return { success: true, data: mockData.mockProducts?.[productId] };
+};
+// ========================================
+// PARDHA — QuotationBuilder-specific mock functions
+// TODO: reconcile with Sanjay's createQuotation/fetchQuotation above
+// ========================================
+
+export const getQuotation = async (id) => {
+  await delay(API_DELAY);
+  return mockData.mockQuotation;
+};
+
+export const addLineToQuotation = async (quotationId, line) => {
+  await delay(API_DELAY);
+  mockData.mockQuotation.lines.push(line);
+  return mockData.mockQuotation;
+};
+
+export const applyDiscount = async (quotationId, lineId, percent) => {
+  await delay(API_DELAY);
+  const line = mockData.mockQuotation.lines.find(l => l.id === lineId);
+  if (line) line.discount_percent = percent;
+  return mockData.mockQuotation;
 };
