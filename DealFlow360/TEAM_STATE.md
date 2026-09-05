@@ -3,17 +3,18 @@
 
 ## Current Architecture
 Backend: FastAPI + SQLAlchemy + PostgreSQL
-Frontend: TBD (fill in once decided)
+Frontend: React + Vite (JavaScript)
 Authentication: JWT (internal users + separate customer-portal role)
 
 ## Current Database Models
 (add as they're created — keep names exactly as listed here)
 - User (done — email, hashed_password, full_name, role, is_active)
 - Customer (done — name, email, hashed_password, tier)
-- Product
-- ProductVariant
-- PriceList
-- DiscountTier
+- Product (done)
+- ProductVariant (done)
+- PriceList → PriceListItem (done — per-tier pricing per product)
+- DiscountTier → DiscountTierLimit (done — order-level ceiling per tier)
+- CategoryDiscountLimit (done — line-level ceiling per product category)
 - Quotation
 - QuotationLine
 - Approval
@@ -25,8 +26,25 @@ Authentication: JWT (internal users + separate customer-portal role)
 
 ## API Contracts
 (one line per endpoint as it's built — method, path, one-line purpose)
-- POST /auth/login — internal user login
+- POST /auth/login
+    - Request:  { "email": str, "password": str }
+    - Response: { "access_token": str, "token_type": "bearer" }
+    - Errors:   401 { "detail": "Invalid credentials" }
 - POST /auth/portal-login — customer portal login
+- POST /quotations
+    - Auth: Bearer token (sales_rep, sales_manager, or admin)
+    - Request:  { "customer_id": int, "lines": [{ "product_id": int, "quantity": int, "unit_price": float, "discount_percent": float }] }
+    - Response: { "id": int, "customer_id": int, "status": str, "risk_score": float, "lines": [...] }
+    - Errors:   404 Customer not found, 401/403 auth
+    - GET /quotations/{id}
+    - Auth: Bearer token (any authenticated internal user)
+    - Response: same shape as above
+    - Errors: 404 Quotation not found
+- POST /approvals/{id}/action
+    - Auth: Bearer token (sales_manager for manager-level, finance for finance-level)
+    - Request:  { "action": "approve" | "reject" | "request_revision", "reason": str (optional) }
+    - Response: { "id", "quotation_id", "level", "status", "reviewed_by_id" }
+    - Errors: 404 not found, 400 already actioned / invalid action, 403 wrong role for this level
 
 ## State Machines
 Quotation:
@@ -35,15 +53,17 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 ## Currently Working On
 - Surya: core auth (password hashing + JWT) — next
 - Tharachand:
-- Pardha:
+- Pardha:Quotation Builder UI working with mock data (add line, edit discount) — waiting on real GET/POST /quotations API from backend
 - Sanjay:
 
 ## Completed
--
+-Frontend scaffolded (Vite + React), Quotation Builder page renders mock quotation with editable discount and add-line form
 
 ## Decisions
 - User roles: sales_rep, sales_manager, finance, admin (enum in models/user.py)
 - Customer tiers: bronze, silver, gold (enum in models/customer.py)
+- Product category is a free-text string field, not a fixed enum. Frontend must fetch category list from backend (endpoint TBD), not hardcode it.
+- Discount approval thresholds: score > 0 → Manager approval, score > 10 → also Finance approval
 
 ## Do Not Change Without Team Agreement
 - Model names (see Current Database Models above)
@@ -54,7 +74,7 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 -
 
 ## Next Checkpoint
--
+- Pardha needs: GET /quotations/{id} and POST /quotations/{id}/lines contract from Surya/Tharachand to replace mockApi.js
 
 ## Open Questions
 - Customer portal login: email+password (assumed) or magic link? Affects Customer model + /auth/portal-login contract.
