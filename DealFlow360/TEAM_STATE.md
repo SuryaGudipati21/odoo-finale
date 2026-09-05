@@ -1,0 +1,56 @@
+# DealFlow360 — Team State
+> Update this file every time you finish or decide something. Everyone's AI reads this before writing code.
+
+## Current Architecture
+Backend: FastAPI + SQLAlchemy + PostgreSQL
+Frontend: TBD (fill in once decided)
+Authentication: JWT (internal users + separate customer-portal role)
+
+## Current Database Models
+(add as they're created — keep names exactly as listed here)
+- User
+- Customer
+- Product
+- ProductVariant
+- PriceList
+- DiscountTier
+- Quotation
+- QuotationLine
+- Approval
+- Warehouse
+- Stock
+- SubscriptionPlan
+- BillingSchedule
+- AuditLog
+
+## API Contracts
+(one line per endpoint as it's built — method, path, one-line purpose)
+- POST /auth/login — internal user login
+- POST /auth/portal-login — customer portal login
+
+## State Machines
+Quotation:
+DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION → REAPPROVAL_REQUIRED → CONFIRMED → FULFILLMENT → COMPLETED
+
+## Currently Working On
+- Surya:
+- Tharachand:
+- Pardha:
+- Sanjay:
+
+## Completed
+-
+
+## Decisions
+-
+
+## Do Not Change Without Team Agreement
+- Model names (see Current Database Models above)
+- Quotation state names (see State Machines above)
+- Field names: use `customer_id` (not `client_id`), `status` (not `state`)
+
+## Known Issues
+-
+
+## Next Checkpoint
+-
