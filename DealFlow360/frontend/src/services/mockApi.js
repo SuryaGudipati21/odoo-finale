@@ -1,3 +1,4 @@
+// Owner: Shared — fallback fake responses matching the same shape as api.js, for UI dev before backend endpoints exist.
 // Mock API service - matches backend API contracts
 // Replace these with real API calls when backend is ready
 
@@ -76,6 +77,79 @@ export const fetchQuotationDetail = async (quotationId) => {
   };
 };
 
+export const applyDiscount = async (quotationId, lineId, discountPercent) => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    data: {
+      line_id: lineId,
+      discount_percent: discountPercent,
+      updated_at: new Date().toISOString()
+    }
+  };
+};
+
+export const updateLineQuantity = async (quotationId, lineId, quantity) => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    data: {
+      line_id: lineId,
+      quantity: quantity,
+      updated_at: new Date().toISOString()
+    }
+  };
+};
+
+export const calculateMargin = async (quotationId) => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    data: {
+      quotation_id: quotationId,
+      margin_percent: 35,
+      margin_amount: 5000
+    }
+  };
+};
+
+export const calculateRiskScore = async (quotationId) => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    data: {
+      quotation_id: quotationId,
+      blended_risk_score: 45,
+      needs_approval: true,
+      approval_level: "manager_finance"
+    }
+  };
+};
+
+export const applyLineDiscount = async (quotationId, lineId, discountPercent) => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    data: {
+      line_id: lineId,
+      discount_percent: discountPercent,
+      line_total: 1800
+    }
+  };
+};
+
+export const submitQuotationForApproval = async (quotationId) => {
+  await delay(API_DELAY);
+  return {
+    success: true,
+    message: "Quotation submitted for approval",
+    data: {
+      quotation_id: quotationId,
+      status: "PENDING_APPROVAL"
+    }
+  };
+};
+
 // ========================================
 // WAREHOUSE SPLIT API
 // ========================================
@@ -129,7 +203,7 @@ export const fetchAnomalies = async () => {
   await delay(API_DELAY);
   return {
     success: true,
-    data: mockData.mockDealHealth.anomalies,
+    data: mockData.mockDealHealth?.anomalies || [],
   };
 };
 
@@ -137,7 +211,7 @@ export const fetchStalledDeals = async () => {
   await delay(API_DELAY);
   return {
     success: true,
-    data: mockData.mockDealHealth.stalled_deals,
+    data: mockData.mockDealHealth?.stalled_deals || [],
   };
 };
 
@@ -147,7 +221,7 @@ export const fetchStalledDeals = async () => {
 
 export const fetchSubscriptions = async () => {
   await delay(API_DELAY);
-  return { success: true, data: mockData.mockSubscriptions.list };
+  return { success: true, data: mockData.mockSubscriptions?.list || [] };
 };
 
 // ========================================
@@ -185,7 +259,7 @@ export const confirmQuotation = async (quotationId) => {
 
 export const fetchApprovals = async () => {
   await delay(API_DELAY);
-  return { success: true, data: mockData.mockApprovals };
+  return { success: true, data: mockData.mockApprovals || [] };
 };
 
 export const submitApprovalAction = async (approvalId, action, reason) => {
