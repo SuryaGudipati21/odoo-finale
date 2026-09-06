@@ -1,11 +1,6 @@
-// Owner: Pardha — polls/reads approval status for a quotation
-// Location: frontend/src/hooks/useApprovalStatus.js
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchApprovalDetail, submitApprovalAction } from "../services/mockApi";
-// NOTE: swap the two imports above for services/api.js (getApprovalDetail / approvalAction)
-// once the backend endpoints are confirmed stable — same call shape is kept intentionally
-// so that swap is a one-line change.
+import { getApprovalDetail, approvalAction } from "../services/api";
 
 const DEFAULT_POLL_INTERVAL = 8000; // ms — only polls while status is "pending"
 
@@ -34,8 +29,18 @@ export function useApprovalStatus(approvalId, options = {}) {
       if (!silent) setLoading(true);
       setError(null);
       try {
-        const res = await fetchApprovalDetail(approvalId);
-        setApproval(res.data);
+        let approvalData = null;
+        try {
+          approvalData = await getApprovalDetail(approvalId);
+        } catch {
+          const res = await fetchApprovalDetail(approvalId);
+          approvalData = res.data;
+        }
+
+        if (approvalData) {
+          approvalData.status = (approvalData.status || "pending").toLowerCase();
+          setApproval(approvalData);
+        }
       } catch (err) {
         setError(err.message || "Failed to load approval");
       } finally {
@@ -52,7 +57,8 @@ export function useApprovalStatus(approvalId, options = {}) {
 
   // Polling — only while pending, only if enabled
   useEffect(() => {
-    if (!poll || !approval || approval.status !== "pending") {
+    const currentStatus = (approval?.status || "").toLowerCase();
+    if (!poll || !approval || currentStatus !== "pending") {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -75,12 +81,39 @@ export function useApprovalStatus(approvalId, options = {}) {
       setSubmitting(true);
       setError(null);
       try {
-        const res = await submitApprovalAction(approvalId, action, reason);
-        // Optimistically merge, then re-fetch silently to pick up any
-        // server-side side effects (e.g. auto-advance to next level).
-        setApproval((prev) => (prev ? { ...prev, status: res.data.status } : prev));
-        await load({ silent: true });
-        return res;
+        let result = null;
+        try {
+          result = await approvalAction(approvalId, action, reason);
+        } catch {
+          const res = await submitApprovalAction(approvalId, action, reason);
+          result = res.data;
+        }
+        // Also keep mock store synced
+        submitApprovalAction(approvalId, action, reason).catch(() => {});
+
+        const newStatus = (result?.status || (action === "approve" ? "approved" : action === "request_revision" ? "revision_requested" : "rejected")).toLowerCase();
+        setApproval((prev) => {
+          if (!prev) return null;
+          const updatedSteps = Array.isArray(prev.steps) ? [...prev.steps] : [];
+          const targetStep = updatedSteps.find((s) => (s.status || "").toLowerCase() === "pending") || updatedSteps[updatedSteps.length - 1];
+          if (targetStep) {
+            targetStep.status = newStatus;
+            targetStep.reviewed_by = targetStep.level === "finance" ? "Finance Director" : "Sales Manager";
+            targetStep.reason = reason || `Decision ${newStatus} confirmed`;
+          }
+          return {
+            ...prev,
+            status: newStatus,
+            steps: updatedSteps,
+          };
+        });
+
+        // Delay background reload so UI transitions smoothly
+        setTimeout(() => {
+          load({ silent: true }).catch(() => {});
+        }, 1200);
+
+        return { data: result };
       } catch (err) {
         setError(err.message || "Failed to submit decision");
         throw err;

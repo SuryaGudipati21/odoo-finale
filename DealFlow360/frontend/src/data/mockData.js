@@ -13,6 +13,7 @@ export const mockQuotations = {
     variance: 7,
     risk_level: "high",
     created_at: "2024-08-24",
+    created_by: "Priya Shah",
     lines: [
       { id: 1, product: "Enterprise License", quantity: 5, price: 2000, discount: 10 },
       { id: 2, product: "Implementation Service", quantity: 1, price: 20000, discount: 20 },
@@ -30,6 +31,7 @@ export const mockQuotations = {
     variance: 4,
     risk_level: "medium",
     created_at: "2024-08-31",
+    created_by: "Rahul Nair",
     lines: [
       { id: 1, product: "Warehouse Module", quantity: 1, price: 35000, discount: 15 },
       { id: 2, product: "Training Package", quantity: 2, price: 15000, discount: 10 },
@@ -199,29 +201,38 @@ export const mockSubscriptions = {
     {
       id: "SUB-001",
       customer: "Acme Corp",
-      plan: "Enterprise Support",
+      plan: "Enterprise Support & SLA",
       cycle: "Monthly",
-      next_billing: "Sep 15",
-      amount_monthly: 500,
+      next_billing: "Oct 15",
+      amount_monthly: 3500,
       status: "Active",
     },
     {
       id: "SUB-002",
       customer: "Beta Industries",
-      plan: "Maintenance SLA",
+      plan: "Professional SLA",
       cycle: "Quarterly",
-      next_billing: "Oct 1",
-      amount_monthly: 1200,
+      next_billing: "Nov 01",
+      amount_monthly: 1500,
       status: "Active",
     },
     {
       id: "SUB-003",
       customer: "Gamma Tech",
-      plan: "Premium Support",
+      plan: "Standard Care Plan",
       cycle: "Yearly",
-      next_billing: "Nov 1",
-      amount_monthly: 8333,
+      next_billing: "Dec 01",
+      amount_monthly: 500,
       status: "Paused",
+    },
+    {
+      id: "SUB-004",
+      customer: "Nexus Dynamics",
+      plan: "Starter SLA",
+      cycle: "Monthly",
+      next_billing: "Oct 20",
+      amount_monthly: 250,
+      status: "Active",
     },
   ],
 };
@@ -238,6 +249,8 @@ export const mockQuotation = {
   id: 1,
   customer_id: 101,
   status: "DRAFT",
+  created_by: "Sales Rep",
+  created_at: "2024-09-01T09:00:00Z",
   lines: [
     {
       id: 1,
@@ -267,14 +280,59 @@ export const mockQuotation = {
 export const mockApproval = {
   id: 1,
   quotation_id: 1,
+  customer_name: "Acme Corp",
+  customer_tier: "gold",
   level: "finance",
   status: "pending",
   blended_risk_score: 14,
   steps: [
-    { level: "manager", status: "approved", reviewed_by: "Sales Manager", reason: null },
-    { level: "finance", status: "pending", reviewed_by: null, reason: null }
+    { id: 1, level: "sales_manager", status: "approved", reviewed_by: "Sales Manager", reason: "Standard enterprise concession verified" },
+    { id: 2, level: "finance", status: "pending", reviewed_by: null, reason: null }
+  ],
+  lines: [
+    { id: 1, product_name: "Office Chair", category: "Hardware", quantity: 2, unit_price: 3000, discount_percent: 5 },
+    { id: 2, product_name: "Onboarding Setup", category: "Services", quantity: 1, unit_price: 8000, discount_percent: 12 }
   ]
 };
+
+export const mockApprovals = [
+  mockApproval,
+  {
+    id: 2,
+    quotation_id: "Q-2024-002",
+    customer_name: "Beta Industries",
+    customer_tier: "silver",
+    level: "sales_manager",
+    status: "pending",
+    blended_risk_score: 12,
+    steps: [
+      { id: 3, level: "sales_manager", status: "pending", reviewed_by: null, reason: null },
+      { id: 4, level: "finance", status: "pending", reviewed_by: null, reason: null }
+    ],
+    lines: [
+      { id: 1, product_name: "Warehouse Module", category: "Hardware", quantity: 1, unit_price: 35000, discount_percent: 15 },
+      { id: 2, product_name: "Training Package", category: "Services", quantity: 2, unit_price: 15000, discount_percent: 10 }
+    ]
+  },
+  {
+    id: 3,
+    quotation_id: "Q-2024-001",
+    customer_name: "Acme Corporation",
+    customer_tier: "gold",
+    level: "finance",
+    status: "approved",
+    blended_risk_score: 18,
+    steps: [
+      { id: 5, level: "sales_manager", status: "approved", reviewed_by: "Sales Manager", reason: "Strategic partner discount authorized" },
+      { id: 6, level: "finance", status: "approved", reviewed_by: "Finance Director", reason: "Quarterly margin quota met" }
+    ],
+    lines: [
+      { id: 1, product_name: "Enterprise License", category: "Software", quantity: 5, unit_price: 2000, discount_percent: 10 },
+      { id: 2, product_name: "Implementation Service", category: "Services", quantity: 1, unit_price: 20000, discount_percent: 20 },
+      { id: 3, product_name: "Support Plan (Annual)", category: "Services", quantity: 5, unit_price: 1000, discount_percent: 12 }
+    ]
+  }
+];
 
 export const mockUpsellSuggestions = [
   { id: 1, product_id: 6, product_name: "Ergonomic Footrest", category: "Hardware", unit_price: 1500, margin_delta: 450, promoted: true },
@@ -290,9 +348,6 @@ export const mockProducts = [
   { id: 5, name: "Training Package", price: 15000, category: "Services", margin: 7500 },
 ];
 
-export const mockApprovals = [
-  mockApproval
-];
 
 const normalizeLine = (line, idx) => {
   const unitPrice = line.unit_price ?? line.price ?? 0;
@@ -318,6 +373,21 @@ const buildUnifiedQuotation = (raw) => ({
   lines: raw.lines.map(normalizeLine),
   margin: raw.margin ?? 0,
   risk_score: raw.risk_score ?? 0,
+  created_by: raw.created_by ?? null,
+  created_at: raw.created_at ?? null,
+  // Activity trail — who did what to this quotation, in order.
+  // Seeds with a "created" entry when we know who/when; new drafts created
+  // via the "+ New Quotation" button start this list empty and grow it live.
+  activity: raw.created_by
+    ? [
+        {
+          action: "Created quotation",
+          user: raw.created_by,
+          timestamp: raw.created_at ?? null,
+          status: "done",
+        },
+      ]
+    : [],
 });
 
 export const mockQuotationsStore = {

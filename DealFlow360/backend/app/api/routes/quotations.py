@@ -1,23 +1,87 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta, timezone
 
 from app.database.session import get_db
-from app.core.deps import get_current_user, require_role
+from app.core.deps import get_current_user, require_role, get_current_customer
 from app.models.user import User
 from app.models.customer import Customer
 from app.models.quotation import Quotation, QuotationLine, QuotationStatus
-from app.models.approval import Approval, ApprovalLevel
-from app.schemas.quotation import QuotationCreate, QuotationOut, QuotationLinesUpdate
-from app.services.discount_risk import calculate_blended_risk
-from app.models.approval import AuditLog
+from app.models.approval import Approval, ApprovalLevel, AuditLog
+from app.models.warehouse import FulfillmentOrder, WarehouseAllocation, FulfillmentStatus, Warehouse, Stock
+from app.models.invoice import Invoice, InvoiceStatus, PipelineStage
+from app.models.subscription import SubscriptionPlan, BillingCycle, SubscriptionStatus
+from app.schemas.quotation import (
+    QuotationCreate,
+    QuotationOut,
+    QuotationLineOut,
+    QuotationListItem,
+    QuotationLinesUpdate,
+)
 from app.schemas.audit import AuditLogOut
+from app.services.discount_risk import calculate_blended_risk
 from app.services.upsell import get_suggestions
 from app.models.negotiation import Negotiation
-from app.schemas.negotiation import NegotiationRequest, NegotiationConfirm
-from app.core.deps import get_current_customer
-from app.models.customer import Customer
+from app.schemas.negotiation import NegotiationRequest
 
 router = APIRouter()
+
+
+def _quotation_to_out(q: Quotation) -> QuotationOut:
+    lines = []
+    total = 0.0
+    for l in q.lines:
+        line_tot = round(l.unit_price * l.quantity * (1.0 - l.discount_percent / 100.0), 2)
+        total += line_tot
+        lines.append(
+            QuotationLineOut(
+                id=l.id,
+                product_id=l.product_id,
+                product_name=l.product.name if l.product else "",
+                category=l.product.category if l.product else "",
+                quantity=l.quantity,
+                unit_price=l.unit_price,
+                discount_percent=l.discount_percent,
+                line_total=line_tot,
+            )
+        )
+    return QuotationOut(
+        id=q.id,
+        customer_id=q.customer_id,
+        customer_name=q.customer.name if q.customer else "",
+        status=q.status.value if hasattr(q.status, "value") else str(q.status),
+        risk_score=q.risk_score,
+        total_amount=round(total, 2),
+        created_at=q.created_at,
+        lines=lines,
+    )
+
+
+@router.get("", response_model=list[QuotationListItem])
+def list_quotations(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    quotes = db.query(Quotation).order_by(Quotation.id.desc()).all()
+    out = []
+    for q in quotes:
+        total = sum(
+            l.unit_price * l.quantity * (1.0 - l.discount_percent / 100.0)
+            for l in q.lines
+        )
+        out.append(
+            QuotationListItem(
+                id=q.id,
+                customer_id=q.customer_id,
+                customer_name=q.customer.name if q.customer else "",
+                status=q.status.value if hasattr(q.status, "value") else str(q.status),
+                risk_score=q.risk_score,
+                total_amount=round(total, 2),
+                line_count=len(q.lines),
+                created_at=q.created_at,
+            )
+        )
+    return out
 
 
 @router.post("", response_model=QuotationOut)
@@ -34,7 +98,7 @@ def create_quotation(
     for line in payload.lines:
         quotation.lines.append(QuotationLine(**line.dict()))
     db.add(quotation)
-    db.flush()  # get product categories for risk calc
+    db.flush()
 
     risk_lines = [
         {"category": l.product.category, "discount_percent": l.discount_percent}
@@ -51,9 +115,16 @@ def create_quotation(
     else:
         quotation.status = QuotationStatus.approved
 
+    db.add(AuditLog(
+        quotation_id=quotation.id,
+        user_id=user.id,
+        action="Created quotation",
+        reason=f"Initial draft with {len(quotation.lines)} lines",
+    ))
+
     db.commit()
     db.refresh(quotation)
-    return quotation
+    return _quotation_to_out(quotation)
 
 
 @router.get("/{quotation_id}", response_model=QuotationOut)
@@ -65,7 +136,8 @@ def get_quotation(
     quotation = db.query(Quotation).get(quotation_id)
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
-    return quotation
+    return _quotation_to_out(quotation)
+
 
 @router.get("/{quotation_id}/audit-log", response_model=list[AuditLogOut])
 def get_audit_log(
@@ -77,12 +149,27 @@ def get_audit_log(
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
 
-    return (
+    logs = (
         db.query(AuditLog)
         .filter_by(quotation_id=quotation_id)
         .order_by(AuditLog.created_at.desc())
         .all()
     )
+    out = []
+    for log in logs:
+        u = db.query(User).get(log.user_id)
+        out.append(
+            AuditLogOut(
+                id=log.id,
+                user_id=log.user_id,
+                user_name=u.full_name if u else "User",
+                action=log.action,
+                reason=log.reason,
+                created_at=log.created_at,
+            )
+        )
+    return out
+
 
 @router.patch("/{quotation_id}/lines", response_model=QuotationOut)
 def update_quotation_lines(
@@ -117,9 +204,17 @@ def update_quotation_lines(
     else:
         quotation.status = QuotationStatus.approved
 
+    db.add(AuditLog(
+        quotation_id=quotation.id,
+        user_id=user.id,
+        action="Updated lines",
+        reason=f"Updated to {len(quotation.lines)} lines",
+    ))
+
     db.commit()
     db.refresh(quotation)
-    return quotation
+    return _quotation_to_out(quotation)
+
 
 @router.get("/{quotation_id}/upsell-suggestions")
 def upsell_suggestions(
@@ -155,11 +250,15 @@ def negotiate(
 
     if payload.quotation_line_id and payload.proposed_discount_percent is not None:
         line = db.query(QuotationLine).get(payload.quotation_line_id)
-        line.discount_percent = payload.proposed_discount_percent
+        if line:
+            line.discount_percent = payload.proposed_discount_percent
+    elif payload.proposed_discount_percent is not None:
+        for line in quotation.lines:
+            line.discount_percent = payload.proposed_discount_percent
 
     quotation.status = QuotationStatus.negotiation
     db.commit()
-    return {"status": quotation.status.value}
+    return {"status": quotation.status.value if hasattr(quotation.status, "value") else str(quotation.status)}
 
 
 @router.post("/{quotation_id}/confirm", response_model=QuotationOut)
@@ -186,7 +285,65 @@ def confirm_quotation(
             db.add(Approval(quotation_id=quotation.id, level=ApprovalLevel.finance))
     else:
         quotation.status = QuotationStatus.confirmed
+        # Auto-create fulfillment split and invoice if not yet present
+        _create_fulfillment_and_invoice_if_missing(db, quotation)
 
     db.commit()
     db.refresh(quotation)
-    return quotation
+    return _quotation_to_out(quotation)
+
+
+def _create_fulfillment_and_invoice_if_missing(db: Session, quotation: Quotation):
+    # Check fulfillment order
+    existing_fo = db.query(FulfillmentOrder).filter_by(quotation_id=quotation.id).first()
+    if not existing_fo:
+        fo = FulfillmentOrder(quotation_id=quotation.id, status=FulfillmentStatus.split_pending)
+        db.add(fo)
+        db.flush()
+
+        warehouses = db.query(Warehouse).all()
+        for line in quotation.lines:
+            remaining_qty = line.quantity
+            for wh in warehouses:
+                if remaining_qty <= 0:
+                    break
+                stock = db.query(Stock).filter_by(warehouse_id=wh.id, product_id=line.product_id).first()
+                avail = (stock.qty_in_stock - stock.qty_reserved) if stock else 0
+                if avail > 0:
+                    allocated = min(avail, remaining_qty)
+                    cost = round(allocated * 1.5, 2)
+                    db.add(WarehouseAllocation(
+                        fulfillment_order_id=fo.id,
+                        warehouse_id=wh.id,
+                        product_id=line.product_id,
+                        quantity=allocated,
+                        cost=cost,
+                    ))
+                    remaining_qty -= allocated
+
+            if remaining_qty > 0 and warehouses:
+                # Place remainder on primary warehouse as backorder allocation
+                db.add(WarehouseAllocation(
+                    fulfillment_order_id=fo.id,
+                    warehouse_id=warehouses[0].id,
+                    product_id=line.product_id,
+                    quantity=remaining_qty,
+                    cost=round(remaining_qty * 1.5, 2),
+                ))
+
+    # Check invoice
+    existing_inv = db.query(Invoice).filter_by(quotation_id=quotation.id).first()
+    if not existing_inv:
+        tot = sum(
+            l.unit_price * l.quantity * (1.0 - l.discount_percent / 100.0)
+            for l in quotation.lines
+        )
+        inv_num = f"INV-{1000 + quotation.id}"
+        db.add(Invoice(
+            invoice_number=inv_num,
+            quotation_id=quotation.id,
+            amount=round(tot, 2),
+            status=InvoiceStatus.unpaid,
+            pipeline_stage=PipelineStage.invoiced,
+            due_date=datetime.now(timezone.utc) + timedelta(days=30),
+        ))
