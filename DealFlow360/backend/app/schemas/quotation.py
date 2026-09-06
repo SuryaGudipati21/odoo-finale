@@ -13,9 +13,19 @@ class QuotationLinesUpdate(BaseModel):
     lines: list[QuotationLineIn]
 
 
+class QuotationStatusUpdate(BaseModel):
+    status: str
+
+
+class QuotationUpdate(BaseModel):
+    customer_id: int | None = None
+    status: str | None = None
+    lines: list[QuotationLineIn] | None = None
+
+
 class QuotationCreate(BaseModel):
     customer_id: int
-    lines: list[QuotationLineIn]
+    lines: list[QuotationLineIn] = []
 
 
 class QuotationLineOut(BaseModel):

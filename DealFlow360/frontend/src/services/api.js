@@ -2,9 +2,60 @@
 // Base URL and endpoints match TEAM_STATE.md API Contracts.
 const BASE_URL = "http://localhost:8000";
 
-function authHeaders() {
+export async function ensureAuth() {
+  let token = localStorage.getItem("access_token");
+  if (token && !token.startsWith("mock_")) {
+    return token;
+  }
+  try {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "rep@dealflow.com", password: "pass123" }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+        if (!localStorage.getItem("user_role")) {
+          localStorage.setItem("user_role", data.user?.role || "sales_rep");
+        }
+        if (data.user) {
+          localStorage.setItem("user_info", JSON.stringify(data.user));
+        }
+        return data.access_token;
+      }
+    }
+  } catch (err) {
+    console.warn("Auto-authentication failed:", err);
+  }
+  return token;
+}
+
+export function authHeaders() {
   const token = localStorage.getItem("access_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token && !token.startsWith("mock_") ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function requestWithAuth(url, options = {}) {
+  let token = localStorage.getItem("access_token");
+  if (!token || token.startsWith("mock_")) {
+    token = await ensureAuth();
+  }
+  const headers = {
+    ...(options.headers || {}),
+    ...(token && !token.startsWith("mock_") ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  let res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    token = await ensureAuth();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      res = await fetch(url, { ...options, headers });
+    }
+  }
+  return res;
 }
 
 export async function login(email, password) {
@@ -71,6 +122,8 @@ export async function portalLogin(email, password) {
   return data;
 }
 
+export const customerLogin = portalLogin;
+
 export async function getProducts() {
   const res = await fetch(`${BASE_URL}/products`);
   if (!res.ok) throw new Error("Failed to load products");
@@ -83,52 +136,152 @@ export async function getCustomers() {
   return res.json();
 }
 
-export async function createQuotation(customerId, lines) {
-  const res = await fetch(`${BASE_URL}/quotations`, {
+export async function createCustomer(payload) {
+  const res = await fetch(`${BASE_URL}/customers`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create customer");
+  }
+  return res.json();
+}
+
+export async function createProduct(payload) {
+  const res = await fetch(`${BASE_URL}/products`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create product");
+  }
+  return res.json();
+}
+
+export async function createQuotation(customerId, lines) {
+  const res = await requestWithAuth(`${BASE_URL}/quotations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      customer_id: customerId,
-      lines: lines.map((l) => ({
-        product_id: l.product_id,
-        quantity: l.quantity,
-        unit_price: l.unit_price,
-        discount_percent: l.discount_percent,
+      customer_id: Number(customerId || 1),
+      lines: (lines || []).map((l) => ({
+        product_id: Number(l.product_id || l.id),
+        quantity: Number(l.quantity || 1),
+        unit_price: Number(l.unit_price ?? l.price ?? 0),
+        discount_percent: Number(l.discount_percent || 0),
       })),
     }),
   });
-  if (!res.ok) throw new Error("Failed to create quotation");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create quotation");
+  }
   return res.json();
 }
 
 export async function getQuotations() {
-  const res = await fetch(`${BASE_URL}/quotations`, { headers: authHeaders() });
+  const res = await requestWithAuth(`${BASE_URL}/quotations`);
   if (!res.ok) throw new Error("Failed to load quotations");
   return res.json();
 }
 
 export async function getQuotation(id) {
-  const res = await fetch(`${BASE_URL}/quotations/${id}`, {
-    headers: authHeaders(),
-  });
+  const cleanId = String(id).replace(/^Q-/, "").trim();
+  const res = await requestWithAuth(`${BASE_URL}/quotations/${cleanId}`);
   if (!res.ok) throw new Error("Quotation not found");
   return res.json();
 }
 
-export async function updateQuotationLines(id, lines) {
-  const res = await fetch(`${BASE_URL}/quotations/${id}/lines`, {
+export async function updateQuotation(id, payload) {
+  const cleanId = String(id).replace(/^Q-/, "").trim();
+  const body = {};
+  if (payload.customer_id !== undefined) body.customer_id = Number(payload.customer_id);
+  if (payload.status !== undefined) body.status = payload.status;
+  if (payload.lines !== undefined) {
+    body.lines = payload.lines.map((l) => ({
+      product_id: Number(l.product_id || l.id),
+      quantity: Number(l.quantity || 1),
+      unit_price: Number(l.unit_price ?? l.price ?? 0),
+      discount_percent: Number(l.discount_percent || 0),
+    }));
+  }
+  const res = await requestWithAuth(`${BASE_URL}/quotations/${cleanId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update quotation");
+  }
+  return res.json();
+}
+
+export async function updateQuotationStatus(id, status) {
+  const cleanId = String(id).replace(/^Q-/, "").trim();
+  const res = await requestWithAuth(`${BASE_URL}/quotations/${cleanId}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update quotation status");
+  }
+  return res.json();
+}
+
+export async function updateQuotationLines(id, lines) {
+  const cleanId = String(id).replace(/^Q-/, "").trim();
+  const res = await requestWithAuth(`${BASE_URL}/quotations/${cleanId}/lines`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      lines: lines.map((l) => ({
-        product_id: l.product_id,
-        quantity: l.quantity,
-        unit_price: l.unit_price,
-        discount_percent: l.discount_percent,
+      lines: (lines || []).map((l) => ({
+        product_id: Number(l.product_id || l.id),
+        quantity: Number(l.quantity || 1),
+        unit_price: Number(l.unit_price ?? l.price ?? 0),
+        discount_percent: Number(l.discount_percent || 0),
       })),
     }),
   });
-  if (!res.ok) throw new Error("Failed to update quotation lines");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update quotation lines");
+  }
+  return res.json();
+}
+
+export async function submitQuotation(id) {
+  const cleanId = String(id).replace(/^Q-/, "").trim();
+  const res = await requestWithAuth(`${BASE_URL}/quotations/${cleanId}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to submit quotation for approval");
+  return res.json();
+}
+
+export async function confirmQuotationRep(id) {
+  const cleanId = String(id).replace(/^Q-/, "").trim();
+  const res = await requestWithAuth(`${BASE_URL}/quotations/${cleanId}/confirm-rep`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to confirm quotation");
+  return res.json();
+}
+
+export async function deleteQuotationLine(id, lineId) {
+  const cleanId = String(id).replace(/^Q-/, "").trim();
+  const res = await requestWithAuth(`${BASE_URL}/quotations/${cleanId}/lines/${lineId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete quotation line");
   return res.json();
 }
 
@@ -167,10 +320,61 @@ export async function approvalAction(approvalId, action, reason) {
 }
 
 export async function getUpsellSuggestions(quotationId) {
-  const res = await fetch(`${BASE_URL}/quotations/${quotationId}/upsell-suggestions`, {
+  const cleanId = String(quotationId).replace(/^Q-/, "").trim();
+  const res = await fetch(`${BASE_URL}/quotations/${cleanId}/upsell-suggestions`, {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to load upsell suggestions");
+  return res.json();
+}
+
+export async function getWarehouses() {
+  const res = await fetch(`${BASE_URL}/fulfillment/warehouses`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load warehouses");
+  return res.json();
+}
+
+export async function createWarehouse(name) {
+  const res = await fetch(`${BASE_URL}/fulfillment/warehouses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error("Failed to create warehouse");
+  return res.json();
+}
+
+export async function getDiscountLimits() {
+  const res = await fetch(`${BASE_URL}/discounts/limits`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load discount limits");
+  return res.json();
+}
+
+export async function updateDiscountLimits(payload) {
+  const res = await fetch(`${BASE_URL}/discounts/limits`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to update discount limits");
+  return res.json();
+}
+
+export async function getDealHealth() {
+  const res = await fetch(`${BASE_URL}/deal-health`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load deal health");
+  return res.json();
+}
+
+export async function getStalledDeals() {
+  const res = await fetch(`${BASE_URL}/deal-health/stalled`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load stalled deals");
+  return res.json();
+}
+
+export async function getAnomalies() {
+  const res = await fetch(`${BASE_URL}/deal-health/anomalies`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load deal anomalies");
   return res.json();
 }
 

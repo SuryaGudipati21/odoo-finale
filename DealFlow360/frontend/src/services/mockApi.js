@@ -71,7 +71,14 @@ export const fetchQuotation = async (quotationId) => {
 
 export const fetchQuotationDetail = async (quotationId) => {
   await delay(API_DELAY);
-  const quotation = mockData.mockQuotations[quotationId];
+  const cleanId = String(quotationId).replace(/^Q-/, "");
+  const quotation =
+    mockData.mockQuotationsStore?.[quotationId] ||
+    mockData.mockQuotationsStore?.[cleanId] ||
+    mockData.mockQuotationsStore?.[`Q-${cleanId}`] ||
+    mockData.mockQuotations?.[quotationId] ||
+    mockData.mockQuotations?.[cleanId] ||
+    mockData.mockQuotations?.[`Q-${cleanId}`];
   return {
     success: true,
     data: quotation || { error: "Not found" }
@@ -210,7 +217,14 @@ export const submitNegotiation = async (quotationId, negotiation) => {
 
 export const confirmQuotation = async (quotationId, actorName) => {
   await delay(API_DELAY);
-  const quotation = mockData.mockQuotationsStore[quotationId];
+  const cleanId = String(quotationId).replace(/^Q-/, "");
+  let quotation =
+    mockData.mockQuotationsStore?.[quotationId] ||
+    mockData.mockQuotationsStore?.[cleanId] ||
+    mockData.mockQuotationsStore?.[`Q-${cleanId}`] ||
+    mockData.mockQuotations?.[quotationId] ||
+    mockData.mockQuotations?.[cleanId] ||
+    mockData.mockQuotations?.[`Q-${cleanId}`];
   if (quotation) {
     const risk = estimateBlendedRiskScore(quotation.lines || [], "gold");
     quotation.risk_score = risk.blendedScore;

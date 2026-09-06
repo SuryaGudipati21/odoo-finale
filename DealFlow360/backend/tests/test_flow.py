@@ -1,7 +1,10 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from app.main import app
-from app.database.session import SessionLocal, Base, engine
+from app.database.session import get_db, Base
 from app.models.user import User, UserRole
 from app.models.customer import Customer, CustomerTier
 from app.models.product import Product
@@ -11,15 +14,28 @@ from app.models.warehouse import Warehouse, Stock
 from app.models.subscription import SubscriptionPlan, BillingCycle, SubscriptionStatus
 from app.core.security import hash_password
 
+TEST_DATABASE_URL = "sqlite:///./test_dealflow360.db"
+test_engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
+
 client = TestClient(app)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_database():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.drop_all(bind=test_engine)
+    Base.metadata.create_all(bind=test_engine)
 
-    db = SessionLocal()
+    db = TestingSessionLocal()
 
     # Step 1: Users, customer, products, discount tiers, warehouses, and stock
     users = [

@@ -15,10 +15,14 @@ def get_suggestions(db: Session, product_ids: list[int], min_margin: float = 0) 
     )
     return [
         {
+            "id": p.id,
             "product_id": p.suggested_product_id,
-            "product_name": p.suggested_product.name,
+            "product_name": p.suggested_product.name if p.suggested_product else "",
+            "category": p.suggested_product.category if p.suggested_product else "Hardware",
+            "unit_price": p.suggested_product.base_price if p.suggested_product else 0.0,
             "margin_delta": p.margin_delta,
             "is_promoted": p.is_promoted,
+            "promoted": p.is_promoted,
         }
         for p in pairings
     ]

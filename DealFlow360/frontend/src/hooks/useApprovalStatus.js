@@ -1,12 +1,14 @@
+// Owner: Sanjay / Ananya — hook for managing single approval workflow & actions
+// Location: frontend/src/hooks/useApprovalStatus.js
+
 import { useState, useEffect, useRef, useCallback } from "react";
-import { fetchApprovalDetail, submitApprovalAction } from "../services/mockApi";
 import { getApprovalDetail, approvalAction } from "../services/api";
 
 const DEFAULT_POLL_INTERVAL = 8000; // ms — only polls while status is "pending"
 
 /**
- * Loads an approval record and (optionally) polls it while it's still pending,
- * e.g. so a Sales Manager sees Finance's decision land without a manual refresh.
+ * Loads an approval record and (optionally) polls it while it's still pending.
+ * Uses the real backend API as the single source of truth.
  *
  * @param {string|number} approvalId
  * @param {object} options
@@ -29,20 +31,13 @@ export function useApprovalStatus(approvalId, options = {}) {
       if (!silent) setLoading(true);
       setError(null);
       try {
-        let approvalData = null;
-        try {
-          approvalData = await getApprovalDetail(approvalId);
-        } catch {
-          const res = await fetchApprovalDetail(approvalId);
-          approvalData = res.data;
-        }
-
+        const approvalData = await getApprovalDetail(approvalId);
         if (approvalData) {
           approvalData.status = (approvalData.status || "pending").toLowerCase();
           setApproval(approvalData);
         }
       } catch (err) {
-        setError(err.message || "Failed to load approval");
+        setError(err.message || "Failed to load approval details from backend");
       } finally {
         if (!silent) setLoading(false);
       }
@@ -81,24 +76,27 @@ export function useApprovalStatus(approvalId, options = {}) {
       setSubmitting(true);
       setError(null);
       try {
-        let result = null;
-        try {
-          result = await approvalAction(approvalId, action, reason);
-        } catch {
-          const res = await submitApprovalAction(approvalId, action, reason);
-          result = res.data;
-        }
-        // Also keep mock store synced
-        submitApprovalAction(approvalId, action, reason).catch(() => {});
+        const result = await approvalAction(approvalId, action, reason);
 
-        const newStatus = (result?.status || (action === "approve" ? "approved" : action === "request_revision" ? "revision_requested" : "rejected")).toLowerCase();
+        const newStatus = (
+          result?.status ||
+          (action === "approve"
+            ? "approved"
+            : action === "request_revision"
+            ? "revision_requested"
+            : "rejected")
+        ).toLowerCase();
+
         setApproval((prev) => {
           if (!prev) return null;
           const updatedSteps = Array.isArray(prev.steps) ? [...prev.steps] : [];
-          const targetStep = updatedSteps.find((s) => (s.status || "").toLowerCase() === "pending") || updatedSteps[updatedSteps.length - 1];
+          const targetStep =
+            updatedSteps.find((s) => (s.status || "").toLowerCase() === "pending") ||
+            updatedSteps[updatedSteps.length - 1];
           if (targetStep) {
             targetStep.status = newStatus;
-            targetStep.reviewed_by = targetStep.level === "finance" ? "Finance Director" : "Sales Manager";
+            targetStep.reviewed_by =
+              targetStep.level === "finance" ? "Finance Director" : "Sales Manager";
             targetStep.reason = reason || `Decision ${newStatus} confirmed`;
           }
           return {
@@ -108,14 +106,14 @@ export function useApprovalStatus(approvalId, options = {}) {
           };
         });
 
-        // Delay background reload so UI transitions smoothly
+        // Background reload to sync authoritative state
         setTimeout(() => {
           load({ silent: true }).catch(() => {});
-        }, 1200);
+        }, 800);
 
         return { data: result };
       } catch (err) {
-        setError(err.message || "Failed to submit decision");
+        setError(err.message || "Failed to submit approval decision");
         throw err;
       } finally {
         setSubmitting(false);

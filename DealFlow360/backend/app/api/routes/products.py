@@ -103,6 +103,58 @@ def list_customers(db: Session = Depends(get_db)):
     ]
 
 
+from app.models.customer import Customer, CustomerTier
+from app.core.security import hash_password
+
+class CustomerCreate(BaseModel):
+    name: str
+    email: str
+    tier: str = "bronze"
+
+
+@router.post("/customers", response_model=CustomerItemOut)
+def create_customer(
+    payload: CustomerCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("sales_rep", "sales_manager", "admin")),
+):
+    existing = db.query(Customer).filter_by(email=payload.email).first()
+    if existing:
+        return CustomerItemOut(
+            id=existing.id,
+            name=existing.name,
+            email=existing.email,
+            tier=existing.tier.value if hasattr(existing.tier, "value") else str(existing.tier),
+        )
+
+    tier_map = {
+        "bronze": CustomerTier.bronze,
+        "silver": CustomerTier.silver,
+        "gold": CustomerTier.gold,
+    }
+    tier_val = tier_map.get(payload.tier.lower(), CustomerTier.bronze)
+    c = Customer(
+        name=payload.name,
+        email=payload.email,
+        hashed_password=hash_password("pass123"),
+        tier=tier_val,
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return CustomerItemOut(
+        id=c.id,
+        name=c.name,
+        email=c.email,
+        tier=c.tier.value if hasattr(c.tier, "value") else str(c.tier),
+    )
+
+
+class DiscountLimitsUpdate(BaseModel):
+    tiers: list[dict] | None = None
+    categories: list[dict] | None = None
+
+
 @router.get("/discounts/limits")
 def get_discount_limits(db: Session = Depends(get_db)):
     tiers = db.query(DiscountTierLimit).all()
@@ -117,3 +169,33 @@ def get_discount_limits(db: Session = Depends(get_db)):
             for c in cats
         ],
     }
+
+
+@router.put("/discounts/limits")
+def update_discount_limits(
+    payload: DiscountLimitsUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    if payload.tiers:
+        for t_item in payload.tiers:
+            tier_name = str(t_item.get("tier", "")).lower()
+            limit = float(t_item.get("max_discount_percent", 0))
+            for ct in CustomerTier:
+                if ct.value == tier_name:
+                    record = db.query(DiscountTierLimit).filter_by(tier=ct).first()
+                    if record:
+                        record.max_discount_percent = limit
+                    else:
+                        db.add(DiscountTierLimit(tier=ct, max_discount_percent=limit))
+    if payload.categories:
+        for c_item in payload.categories:
+            cat_name = str(c_item.get("category", ""))
+            limit = float(c_item.get("max_discount_percent", 0))
+            record = db.query(CategoryDiscountLimit).filter_by(category=cat_name).first()
+            if record:
+                record.max_discount_percent = limit
+            else:
+                db.add(CategoryDiscountLimit(category=cat_name, max_discount_percent=limit))
+    db.commit()
+    return get_discount_limits(db)

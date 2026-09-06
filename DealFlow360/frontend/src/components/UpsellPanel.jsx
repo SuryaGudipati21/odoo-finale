@@ -3,11 +3,8 @@
 // Location: frontend/src/components/UpsellPanel.jsx
 
 import { useState, useEffect } from "react";
+import { getUpsellSuggestions } from "../services/api";
 import { fetchUpsellSuggestions } from "../services/mockApi";
-// NOTE: was importing getUpsellSuggestions from ../services/api (real backend call to
-// localhost:8000, which doesn't exist yet) — switched to mockApi to match every other
-// component in the app. Swap back to services/api.js once that endpoint is confirmed live;
-// the response shape ({ success, data }) is already aligned so it's a one-line import change.
 
 function UpsellPanel({ quotationId, onAddSuggestion }) {
   const [suggestions, setSuggestions] = useState([]);
@@ -16,11 +13,21 @@ function UpsellPanel({ quotationId, onAddSuggestion }) {
   const [addingId, setAddingId] = useState(null);
 
   useEffect(() => {
+    if (!quotationId || quotationId === "new") {
+      setSuggestions([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
-    fetchUpsellSuggestions(quotationId)
-      .then((res) => setSuggestions(res.data || []))
-      .catch((err) => setError(err.message))
+    getUpsellSuggestions(quotationId)
+      .then((data) => setSuggestions(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.warn("Real getUpsellSuggestions failed, trying mock:", err);
+        fetchUpsellSuggestions(quotationId)
+          .then((res) => setSuggestions(res.data || []))
+          .catch((mErr) => setError(mErr.message));
+      })
       .finally(() => setLoading(false));
   }, [quotationId]);
 

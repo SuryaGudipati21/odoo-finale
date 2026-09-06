@@ -17,6 +17,8 @@ from app.schemas.quotation import (
     QuotationLineOut,
     QuotationListItem,
     QuotationLinesUpdate,
+    QuotationStatusUpdate,
+    QuotationUpdate,
 )
 from app.schemas.audit import AuditLogOut
 from app.services.discount_risk import calculate_blended_risk
@@ -100,20 +102,24 @@ def create_quotation(
     db.add(quotation)
     db.flush()
 
-    risk_lines = [
-        {"category": l.product.category, "discount_percent": l.discount_percent}
-        for l in quotation.lines
-    ]
-    result = calculate_blended_risk(db, customer.tier, risk_lines)
-    quotation.risk_score = result["score"]
+    if quotation.lines:
+        risk_lines = [
+            {"category": l.product.category if l.product else "", "discount_percent": l.discount_percent}
+            for l in quotation.lines
+        ]
+        result = calculate_blended_risk(db, customer.tier, risk_lines)
+        quotation.risk_score = result["score"]
 
-    if result["approval_required"]:
-        quotation.status = QuotationStatus.pending_approval
-        db.add(Approval(quotation_id=quotation.id, level=ApprovalLevel.manager))
-        if result["finance_required"]:
-            db.add(Approval(quotation_id=quotation.id, level=ApprovalLevel.finance))
+        if result["approval_required"]:
+            quotation.status = QuotationStatus.pending_approval
+            db.add(Approval(quotation_id=quotation.id, level=ApprovalLevel.manager))
+            if result["finance_required"]:
+                db.add(Approval(quotation_id=quotation.id, level=ApprovalLevel.finance))
+        else:
+            quotation.status = QuotationStatus.approved
     else:
-        quotation.status = QuotationStatus.approved
+        quotation.risk_score = 0.0
+        quotation.status = QuotationStatus.draft
 
     db.add(AuditLog(
         quotation_id=quotation.id,
@@ -171,6 +177,14 @@ def get_audit_log(
     return out
 
 
+def _parse_quotation_status(status_str: str) -> QuotationStatus:
+    status_clean = str(status_str).strip().upper()
+    for s in QuotationStatus:
+        if s.value == status_clean or s.name.upper() == status_clean:
+            return s
+    raise HTTPException(status_code=400, detail=f"Invalid quotation status: {status_str}")
+
+
 @router.patch("/{quotation_id}/lines", response_model=QuotationOut)
 def update_quotation_lines(
     quotation_id: int,
@@ -181,8 +195,8 @@ def update_quotation_lines(
     quotation = db.query(Quotation).get(quotation_id)
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
-    if quotation.status != QuotationStatus.draft:
-        raise HTTPException(status_code=400, detail="Only DRAFT quotations can be edited")
+    if quotation.status in (QuotationStatus.confirmed, QuotationStatus.fulfillment, QuotationStatus.completed):
+        raise HTTPException(status_code=400, detail="Confirmed or Completed quotations cannot be modified")
 
     quotation.lines.clear()
     for line in payload.lines:
@@ -190,10 +204,11 @@ def update_quotation_lines(
     db.flush()
 
     risk_lines = [
-        {"category": l.product.category, "discount_percent": l.discount_percent}
+        {"category": l.product.category if l.product else "", "discount_percent": l.discount_percent}
         for l in quotation.lines
     ]
-    result = calculate_blended_risk(db, quotation.customer.tier, risk_lines)
+    tier = quotation.customer.tier if quotation.customer else CustomerTier.bronze
+    result = calculate_blended_risk(db, tier, risk_lines)
     quotation.risk_score = result["score"]
 
     if result["approval_required"]:
@@ -211,6 +226,91 @@ def update_quotation_lines(
         reason=f"Updated to {len(quotation.lines)} lines",
     ))
 
+    db.commit()
+    db.refresh(quotation)
+    return _quotation_to_out(quotation)
+
+
+@router.patch("/{quotation_id}/status", response_model=QuotationOut)
+def update_quotation_status(
+    quotation_id: int,
+    payload: QuotationStatusUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("sales_rep", "sales_manager", "admin")),
+):
+    quotation = db.query(Quotation).get(quotation_id)
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+
+    new_status = _parse_quotation_status(payload.status)
+    old_status = quotation.status
+    quotation.status = new_status
+
+    if new_status in (QuotationStatus.confirmed, QuotationStatus.fulfillment, QuotationStatus.completed):
+        _create_fulfillment_and_invoice_if_missing(db, quotation)
+    elif new_status == QuotationStatus.pending_approval:
+        appr = db.query(Approval).filter_by(quotation_id=quotation.id).first()
+        if not appr:
+            db.add(Approval(quotation_id=quotation.id, level=ApprovalLevel.manager))
+
+    db.add(AuditLog(
+        quotation_id=quotation.id,
+        user_id=user.id,
+        action="Updated status",
+        reason=f"Status changed from {old_status.value if hasattr(old_status, 'value') else old_status} to {new_status.value}",
+    ))
+    db.commit()
+    db.refresh(quotation)
+    return _quotation_to_out(quotation)
+
+
+@router.put("/{quotation_id}", response_model=QuotationOut)
+def update_quotation(
+    quotation_id: int,
+    payload: QuotationUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("sales_rep", "sales_manager", "admin")),
+):
+    quotation = db.query(Quotation).get(quotation_id)
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+
+    if payload.customer_id is not None:
+        customer = db.query(Customer).get(payload.customer_id)
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        quotation.customer_id = customer.id
+
+    if payload.lines is not None:
+        quotation.lines.clear()
+        for line in payload.lines:
+            quotation.lines.append(QuotationLine(**line.dict()))
+        db.flush()
+
+        risk_lines = [
+            {"category": l.product.category if l.product else "", "discount_percent": l.discount_percent}
+            for l in quotation.lines
+        ]
+        tier = quotation.customer.tier if quotation.customer else CustomerTier.bronze
+        result = calculate_blended_risk(db, tier, risk_lines)
+        quotation.risk_score = result["score"]
+
+    if payload.status is not None:
+        new_status = _parse_quotation_status(payload.status)
+        quotation.status = new_status
+        if new_status in (QuotationStatus.confirmed, QuotationStatus.fulfillment, QuotationStatus.completed):
+            _create_fulfillment_and_invoice_if_missing(db, quotation)
+        elif new_status == QuotationStatus.pending_approval:
+            appr = db.query(Approval).filter_by(quotation_id=quotation.id).first()
+            if not appr:
+                db.add(Approval(quotation_id=quotation.id, level=ApprovalLevel.manager))
+
+    db.add(AuditLog(
+        quotation_id=quotation.id,
+        user_id=user.id,
+        action="Updated quotation",
+        reason="Updated quotation details via API",
+    ))
     db.commit()
     db.refresh(quotation)
     return _quotation_to_out(quotation)
@@ -347,3 +447,89 @@ def _create_fulfillment_and_invoice_if_missing(db: Session, quotation: Quotation
             pipeline_stage=PipelineStage.invoiced,
             due_date=datetime.now(timezone.utc) + timedelta(days=30),
         ))
+
+
+@router.post("/{quotation_id}/submit", response_model=QuotationOut)
+def submit_quotation(
+    quotation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("sales_rep", "sales_manager", "admin")),
+):
+    quotation = db.query(Quotation).get(quotation_id)
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+
+    risk_lines = [
+        {"category": l.product.category if l.product else "", "discount_percent": l.discount_percent}
+        for l in quotation.lines
+    ]
+    result = calculate_blended_risk(db, quotation.customer.tier, risk_lines)
+    quotation.risk_score = result["score"]
+
+    if result["approval_required"]:
+        quotation.status = QuotationStatus.pending_approval
+        db.add(Approval(quotation_id=quotation.id, level=ApprovalLevel.manager))
+        if result["finance_required"]:
+            db.add(Approval(quotation_id=quotation.id, level=ApprovalLevel.finance))
+    else:
+        quotation.status = QuotationStatus.approved
+
+    db.add(AuditLog(
+        quotation_id=quotation.id,
+        user_id=user.id,
+        action="Submitted quotation",
+        reason="Submitted for approval or confirmation",
+    ))
+    db.commit()
+    db.refresh(quotation)
+    return _quotation_to_out(quotation)
+
+
+@router.post("/{quotation_id}/confirm-rep", response_model=QuotationOut)
+def confirm_quotation_rep(
+    quotation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("sales_rep", "sales_manager", "admin")),
+):
+    quotation = db.query(Quotation).get(quotation_id)
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+
+    quotation.status = QuotationStatus.confirmed
+    _create_fulfillment_and_invoice_if_missing(db, quotation)
+    db.add(AuditLog(
+        quotation_id=quotation.id,
+        user_id=user.id,
+        action="Confirmed quotation",
+        reason="Quotation confirmed and sent to fulfillment",
+    ))
+    db.commit()
+    db.refresh(quotation)
+    return _quotation_to_out(quotation)
+
+
+@router.delete("/{quotation_id}/lines/{line_id}", response_model=QuotationOut)
+def delete_quotation_line(
+    quotation_id: int,
+    line_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("sales_rep", "sales_manager", "admin")),
+):
+    quotation = db.query(Quotation).get(quotation_id)
+    if not quotation:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+
+    line = db.query(QuotationLine).filter_by(id=line_id, quotation_id=quotation.id).first()
+    if line:
+        db.delete(line)
+        db.flush()
+
+    risk_lines = [
+        {"category": l.product.category if l.product else "", "discount_percent": l.discount_percent}
+        for l in quotation.lines
+    ]
+    result = calculate_blended_risk(db, quotation.customer.tier, risk_lines)
+    quotation.risk_score = result["score"]
+    db.commit()
+    db.refresh(quotation)
+    return _quotation_to_out(quotation)

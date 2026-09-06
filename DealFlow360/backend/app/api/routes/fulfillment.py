@@ -151,3 +151,35 @@ def manual_override(
     db.commit()
     db.refresh(order)
     return _order_to_out(order)
+
+
+from pydantic import BaseModel
+from app.models.warehouse import Warehouse
+
+class WarehouseCreate(BaseModel):
+    name: str
+
+class WarehouseOut(BaseModel):
+    id: int
+    name: str
+
+@router.get("/warehouses", response_model=list[WarehouseOut])
+def list_warehouses(db: Session = Depends(get_db)):
+    whs = db.query(Warehouse).all()
+    return [WarehouseOut(id=w.id, name=w.name) for w in whs]
+
+@router.post("/warehouses", response_model=WarehouseOut)
+def create_warehouse(
+    payload: WarehouseCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "sales_manager")),
+):
+    existing = db.query(Warehouse).filter_by(name=payload.name).first()
+    if existing:
+        return WarehouseOut(id=existing.id, name=existing.name)
+    w = Warehouse(name=payload.name)
+    db.add(w)
+    db.commit()
+    db.refresh(w)
+    return WarehouseOut(id=w.id, name=w.name)
+

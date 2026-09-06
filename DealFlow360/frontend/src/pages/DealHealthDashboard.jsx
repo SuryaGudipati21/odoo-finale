@@ -1,9 +1,7 @@
-// Owner: Sanjay — main deal health dashboard with metrics, stalled deals, and anomalies
-// Location: frontend/src/pages/DealHealthDashboard.jsx
-
 import React, { useState, useEffect } from "react";
 import DealHealthCard from "../components/DealHealthCard";
 import Layout from "../components/Layout";
+import { getDealHealth, getStalledDeals, getAnomalies } from "../services/api";
 import { fetchDealHealth, fetchStalledDeals, fetchAnomalies } from "../services/mockApi";
 
 const DealHealthDashboard = () => {
@@ -33,15 +31,34 @@ const DealHealthDashboard = () => {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        const [healthRes, stalledRes, anomaliesRes] = await Promise.all([
-          fetchDealHealth(),
-          fetchStalledDeals(),
-          fetchAnomalies(),
-        ]);
+        let healthData = null;
+        let stalledData = null;
+        let anomaliesData = null;
 
-        setDealHealth(healthRes.data);
-        setStalledDeals(stalledRes.data);
-        setAnomalies(anomaliesRes.data);
+        try {
+          const [healthRes, stalledRes, anomaliesRes] = await Promise.all([
+            getDealHealth(),
+            getStalledDeals(),
+            getAnomalies(),
+          ]);
+          healthData = healthRes.summary || healthRes;
+          stalledData = Array.isArray(stalledRes) ? stalledRes : healthRes.stalled_deals || [];
+          anomaliesData = Array.isArray(anomaliesRes) ? anomaliesRes : healthRes.anomalies || [];
+        } catch (apiErr) {
+          console.warn("Real deal-health failed, falling back to mock:", apiErr);
+          const [healthRes, stalledRes, anomaliesRes] = await Promise.all([
+            fetchDealHealth(),
+            fetchStalledDeals(),
+            fetchAnomalies(),
+          ]);
+          healthData = healthRes.data;
+          stalledData = stalledRes.data;
+          anomaliesData = anomaliesRes.data;
+        }
+
+        setDealHealth(healthData);
+        setStalledDeals(stalledData || []);
+        setAnomalies(anomaliesData || []);
       } catch (err) {
         setError(err.message);
       } finally {

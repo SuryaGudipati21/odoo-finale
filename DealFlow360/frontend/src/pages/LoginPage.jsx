@@ -6,7 +6,8 @@
 // mock auth flow (services/mockApi.js) so the app works with no backend running.
 
 import { useState } from "react";
-import { login, signup } from "../services/mockApi";
+import { login, signup, customerLogin } from "../services/api";
+import * as mockApi from "../services/mockApi";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -28,8 +29,8 @@ function LoginPage() {
   const [team, setTeam] = useState("sales_rep");
 
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("rep@example.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("rep@dealflow.com");
+  const [password, setPassword] = useState("pass123");
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState(null);
@@ -54,12 +55,50 @@ function LoginPage() {
     return Object.keys(errors).length === 0;
   };
 
-  const routeAfterLogin = (user) => {
-    if (user.role === "customer") {
-      navigate("/portal/quotations/Q-2024-001"); // demo quotation — real flow would use the customer's own quotation id
-    } else {
-      navigate("/dashboard");
+  const DEMO_CREDENTIALS = {
+    sales_rep: { email: "rep@dealflow.com", password: "pass123" },
+    sales_manager: { email: "manager@dealflow.com", password: "pass123" },
+    finance: { email: "finance@dealflow.com", password: "pass123" },
+    admin: { email: "admin@dealflow.com", password: "pass123" },
+  };
+
+  const handleTeamChange = (newTeam) => {
+    setTeam(newTeam);
+    const demoEmails = Object.values(DEMO_CREDENTIALS).map((c) => c.email);
+    if (!email || demoEmails.includes(email)) {
+      setEmail(DEMO_CREDENTIALS[newTeam]?.email || "rep@dealflow.com");
+      setPassword("pass123");
     }
+  };
+
+  const handleDemoSelect = (demoEmail, demoRole) => {
+    setEmail(demoEmail);
+    setPassword("pass123");
+    setTeam(demoRole);
+    setAccountType("internal");
+    setError(null);
+    setFieldErrors({});
+  };
+
+  const getRoleDashboard = (role) => {
+    switch (role) {
+      case "customer":
+        return "/portal/quotations/Q-2024-001";
+      case "sales_manager":
+        return "/deal-health";
+      case "finance":
+        return "/invoices";
+      case "admin":
+        return "/config";
+      case "sales_rep":
+      default:
+        return "/dashboard";
+    }
+  };
+
+  const routeAfterLogin = (user, selectedTeam) => {
+    const role = user?.role || selectedTeam || "sales_rep";
+    navigate(getRoleDashboard(role));
   };
 
   const handleSubmit = async (e) => {
@@ -69,17 +108,34 @@ function LoginPage() {
 
     setSubmitting(true);
     try {
-      const role = accountType === "customer" ? "customer" : team;
-      const res =
-        mode === "signup"
-          ? await signup(email, password, fullName, role)
-          : await login(email, password, role);
+      let res;
+      if (mode === "signup") {
+        res = await signup(email, password, fullName, team);
+      } else if (accountType === "customer") {
+        res = await customerLogin(email, password);
+      } else {
+        res = await login(email, password);
+      }
 
-      const { access_token, user } = res.data;
-      authLogin(access_token, user.role, user);
-      routeAfterLogin(user);
+      const access_token = res.access_token || res.data?.access_token;
+      const user = res.user || res.data?.user || res.customer || { email, role: team };
+      authLogin(access_token, user.role || team, user);
+      routeAfterLogin(user, team);
     } catch (err) {
-      setError(err.message || (mode === "signup" ? "Sign up failed" : "Login failed"));
+      console.warn("Real auth failed, falling back to mock:", err);
+      try {
+        const role = accountType === "customer" ? "customer" : team;
+        const res =
+          mode === "signup"
+            ? await mockApi.signup(email, password, fullName, role)
+            : await mockApi.login(email, password, role);
+
+        const { access_token, user } = res.data;
+        authLogin(access_token, user.role, user);
+        routeAfterLogin(user, team);
+      } catch (mockErr) {
+        setError(err.message || mockErr.message || (mode === "signup" ? "Sign up failed" : "Login failed"));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -184,7 +240,7 @@ function LoginPage() {
               <select
                 id="team"
                 value={team}
-                onChange={(e) => setTeam(e.target.value)}
+                onChange={(e) => handleTeamChange(e.target.value)}
               >
                 {TEAMS.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -214,11 +270,38 @@ function LoginPage() {
 
           {error && <p className="login-error">{error}</p>}
 
-          <div className="login-info">
-            <p>
-              After login, internal users land on the Sales Dashboard. Customers
-              land on their Quotation Portal.
-            </p>
+          <div className="pt-3 border-t border-gray-100 my-4 text-left">
+            <p className="text-xs font-semibold text-gray-500 mb-2">⚡ Quick Demo Access (Click to Fill & Login):</p>
+            <div className="grid grid-cols-2 gap-1.5 text-xs">
+              <button
+                type="button"
+                onClick={() => handleDemoSelect("rep@dealflow.com", "sales_rep")}
+                className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-left font-medium border border-blue-200 transition-colors"
+              >
+                💼 Sales Rep<br/><span className="text-3xs text-gray-500">rep@dealflow.com</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDemoSelect("manager@dealflow.com", "sales_manager")}
+                className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-left font-medium border border-amber-200 transition-colors"
+              >
+                ⚖️ Manager<br/><span className="text-3xs text-gray-500">manager@dealflow.com</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDemoSelect("admin@dealflow.com", "admin")}
+                className="p-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-left font-medium border border-purple-200 transition-colors"
+              >
+                ⚡ Admin<br/><span className="text-3xs text-gray-500">admin@dealflow.com</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDemoSelect("finance@dealflow.com", "finance")}
+                className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-left font-medium border border-emerald-200 transition-colors"
+              >
+                💰 Finance<br/><span className="text-3xs text-gray-500">finance@dealflow.com</span>
+              </button>
+            </div>
           </div>
 
           <ul className="login-notes">

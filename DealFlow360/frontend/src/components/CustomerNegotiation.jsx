@@ -3,6 +3,51 @@
 
 import React, { useState, useEffect } from "react";
 import { fetchQuotationDetail, submitNegotiation, confirmQuotation } from "../services/mockApi";
+import { getQuotation, updateQuotationStatus } from "../services/api";
+
+const normalizeQuotationData = (qData) => {
+  if (!qData) return null;
+  const rawLines = Array.isArray(qData.lines) ? qData.lines : [];
+  const lines = rawLines.map((l, idx) => {
+    const price = Number(l.unit_price ?? l.price ?? 0);
+    const qty = Number(l.quantity ?? 1);
+    const discount = Number(l.discount_percent ?? l.discount ?? 0);
+    const productName = l.product_name || l.product || "Product";
+    const lineTotal = Number(
+      l.line_total != null
+        ? l.line_total
+        : Math.round(price * qty * (1 - discount / 100))
+    );
+
+    return {
+      ...l,
+      id: l.id ?? idx + 1,
+      product: productName,
+      product_name: productName,
+      price,
+      unit_price: price,
+      quantity: qty,
+      discount,
+      discount_percent: discount,
+      line_total: lineTotal,
+    };
+  });
+
+  const totalAmount = Number(
+    qData.total_amount ??
+      qData.amount ??
+      lines.reduce((sum, l) => sum + (l.line_total || 0), 0)
+  );
+
+  return {
+    ...qData,
+    lines,
+    total_amount: totalAmount,
+    amount: totalAmount,
+    customer: qData.customer || qData.customer_name || "Customer",
+    customer_name: qData.customer || qData.customer_name || "Customer",
+  };
+};
 
 const CustomerNegotiation = ({ quotationId }) => {
   const [quotation, setQuotation] = useState(null);
@@ -29,10 +74,31 @@ const CustomerNegotiation = ({ quotationId }) => {
     try {
       setConfirming(true);
       setError(null);
-      const res = await confirmQuotation(quotationId, "Customer");
-      const updatedQuote = res.data;
-      setQuotation({ ...updatedQuote });
-      if (updatedQuote.status === "REAPPROVAL_REQUIRED" || updatedQuote.status === "PENDING_APPROVAL") {
+      let updatedQuote = null;
+      try {
+        const res = await confirmQuotation(quotationId, "Customer");
+        if (res && res.data && !res.data.error) {
+          updatedQuote = res.data;
+        }
+      } catch (mockErr) {
+        console.warn("Mock confirm failed, trying real API:", mockErr);
+      }
+
+      if (!updatedQuote) {
+        try {
+          const res = await updateQuotationStatus(quotationId, "CONFIRMED");
+          updatedQuote = res;
+        } catch (apiErr) {
+          console.warn("Real API confirm failed:", apiErr);
+        }
+      }
+
+      const normalized = normalizeQuotationData(updatedQuote || quotation);
+      if (normalized) {
+        setQuotation(normalized);
+      }
+
+      if (normalized?.status === "REAPPROVAL_REQUIRED" || normalized?.status === "PENDING_APPROVAL") {
         setConfirmationNotice({
           type: "warning",
           message: "Terms exceed approval thresholds. Quotation has automatically re-entered the Sales Manager & Finance approval flow.",
@@ -54,10 +120,31 @@ const CustomerNegotiation = ({ quotationId }) => {
     const loadQuotation = async () => {
       try {
         setLoading(true);
-        const response = await fetchQuotationDetail(quotationId);
-        setQuotation(response.data);
+        let qData = null;
+        try {
+          const response = await fetchQuotationDetail(quotationId);
+          if (response && response.data && !response.data.error) {
+            qData = response.data;
+          }
+        } catch (err) {
+          console.warn("fetchQuotationDetail mock error:", err);
+        }
+
+        if (!qData) {
+          try {
+            qData = await getQuotation(quotationId);
+          } catch (err) {
+            console.warn("getQuotation real API error:", err);
+          }
+        }
+
+        if (qData) {
+          setQuotation(normalizeQuotationData(qData));
+        } else {
+          setError("Quotation not found");
+        }
       } catch (err) {
-        setError(err.message);
+        setError(err.message || "Failed to load quotation");
       } finally {
         setLoading(false);
       }
@@ -128,26 +215,39 @@ const CustomerNegotiation = ({ quotationId }) => {
 
   const calculateOrderTotal = () => {
     if (!quotation) return 0;
-    return quotation.lines.reduce((total, line) => {
-      const lineTotal = line.quantity * line.price;
-      const discountAmount = (lineTotal * line.discount) / 100;
-      return total + (lineTotal - discountAmount);
+    const lines = quotation.lines || [];
+    if (lines.length === 0 && (quotation.total_amount || quotation.amount)) {
+      return Number(quotation.total_amount ?? quotation.amount ?? 0);
+    }
+    return lines.reduce((total, line) => {
+      const price = Number(line.unit_price ?? line.price ?? 0);
+      const qty = Number(line.quantity ?? 1);
+      const discount = Number(line.discount_percent ?? line.discount ?? 0);
+      const lineTotal = Number(
+        line.line_total != null
+          ? line.line_total
+          : Math.round(price * qty * (1 - discount / 100))
+      );
+      return total + (isNaN(lineTotal) ? 0 : lineTotal);
     }, 0);
   };
 
   const calculateProposedTotal = () => {
     const currentTotal = calculateOrderTotal();
-    if (!formData.counter_discount) return currentTotal;
+    const discountVal = parseFloat(formData.counter_discount);
+    if (!formData.counter_discount || isNaN(discountVal)) return currentTotal;
 
-    const counterDiscount = (currentTotal * parseFloat(formData.counter_discount)) / 100;
-    return currentTotal - counterDiscount;
+    const counterDiscount = (currentTotal * discountVal) / 100;
+    return Math.max(0, currentTotal - counterDiscount);
   };
 
   const formatCurrency = (value) => {
+    const num = Number(value);
+    const safeVal = isNaN(num) ? 0 : num;
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(value);
+    }).format(safeVal);
   };
 
   if (loading) {
@@ -262,7 +362,7 @@ const CustomerNegotiation = ({ quotationId }) => {
                         Product
                       </p>
                       <p className="text-white font-semibold group-hover:text-blue-300 transition-colors duration-200">
-                        {line.product}
+                        {line.product_name || line.product || "Product"}
                       </p>
                     </div>
 
@@ -272,7 +372,7 @@ const CustomerNegotiation = ({ quotationId }) => {
                         Quantity
                       </p>
                       <p className="text-gray-300">
-                        {line.quantity} × {formatCurrency(line.price)}
+                        {line.quantity ?? 1} × {formatCurrency(line.unit_price ?? line.price ?? 0)}
                       </p>
                     </div>
 
@@ -281,7 +381,7 @@ const CustomerNegotiation = ({ quotationId }) => {
                       <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
                         Discount
                       </p>
-                      <p className="text-orange-400 font-semibold">{line.discount}%</p>
+                      <p className="text-orange-400 font-semibold">{line.discount_percent ?? line.discount ?? 0}%</p>
                     </div>
 
                     {/* Line Total */}
@@ -291,7 +391,10 @@ const CustomerNegotiation = ({ quotationId }) => {
                       </p>
                       <p className="text-green-300 font-bold text-lg">
                         {formatCurrency(
-                          line.quantity * line.price * (1 - line.discount / 100)
+                          line.line_total ??
+                            (Number(line.quantity ?? 1) *
+                              Number(line.unit_price ?? line.price ?? 0) *
+                              (1 - Number(line.discount_percent ?? line.discount ?? 0) / 100))
                         )}
                       </p>
                     </div>

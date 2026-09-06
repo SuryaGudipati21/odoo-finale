@@ -350,45 +350,61 @@ export const mockProducts = [
 
 
 const normalizeLine = (line, idx) => {
-  const unitPrice = line.unit_price ?? line.price ?? 0;
-  const discountPercent = line.discount_percent ?? line.discount ?? 0;
-  const quantity = line.quantity ?? 1;
+  const unitPrice = Number(line.unit_price ?? line.price ?? 0);
+  const discountPercent = Number(line.discount_percent ?? line.discount ?? 0);
+  const quantity = Number(line.quantity ?? 1);
+  const productName = line.product_name ?? line.product ?? "Product";
+  const lineTotal = Number(line.line_total ?? Math.round(unitPrice * quantity * (1 - discountPercent / 100)));
   return {
     id: line.id ?? idx + 1,
     product_id: line.product_id ?? null,
-    product_name: line.product_name ?? line.product,
+    product_name: productName,
+    product: productName,
     category: line.category ?? "General",
     quantity,
     unit_price: unitPrice,
+    price: unitPrice,
     discount_percent: discountPercent,
-    line_total: Math.round(unitPrice * quantity * (1 - discountPercent / 100)),
+    discount: discountPercent,
+    line_total: lineTotal,
   };
 };
 
-const buildUnifiedQuotation = (raw) => ({
-  id: raw.id,
-  customer_id: raw.customer_id ?? mockCustomer.id,
-  customer: raw.customer ?? mockCustomer.name,
-  status: raw.status,
-  lines: raw.lines.map(normalizeLine),
-  margin: raw.margin ?? 0,
-  risk_score: raw.risk_score ?? 0,
+const buildUnifiedQuotation = (raw) => {
+  const normLines = (raw.lines || []).map(normalizeLine);
+  const totalAmount = Number(
+    raw.total_amount ??
+      raw.amount ??
+      normLines.reduce((s, l) => s + (l.line_total || 0), 0)
+  );
+  return {
+    id: raw.id,
+    customer_id: raw.customer_id ?? mockCustomer.id,
+    customer: raw.customer ?? mockCustomer.name,
+    customer_name: raw.customer ?? mockCustomer.name,
+    status: raw.status,
+    lines: normLines,
+    total_amount: totalAmount,
+    amount: totalAmount,
+    margin: raw.margin ?? 0,
+    risk_score: raw.risk_score ?? 0,
   created_by: raw.created_by ?? null,
   created_at: raw.created_at ?? null,
   // Activity trail — who did what to this quotation, in order.
   // Seeds with a "created" entry when we know who/when; new drafts created
   // via the "+ New Quotation" button start this list empty and grow it live.
-  activity: raw.created_by
-    ? [
-        {
-          action: "Created quotation",
-          user: raw.created_by,
-          timestamp: raw.created_at ?? null,
-          status: "done",
-        },
-      ]
-    : [],
-});
+    activity: raw.created_by
+      ? [
+          {
+            action: "Created quotation",
+            user: raw.created_by,
+            timestamp: raw.created_at ?? null,
+            status: "done",
+          },
+        ]
+      : [],
+  };
+};
 
 export const mockQuotationsStore = {
   [mockQuotation.id]: buildUnifiedQuotation(mockQuotation),

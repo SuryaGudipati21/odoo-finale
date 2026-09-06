@@ -1,7 +1,5 @@
-// src/pages/ApprovalsList.jsx — Approval pipeline & queue
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchApprovals } from "../services/mockApi";
 import { getApprovals } from "../services/api";
 import Layout from "../components/Layout";
 
@@ -9,13 +7,14 @@ function ApprovalsList() {
   const navigate = useNavigate();
   const [approvals, setApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     getApprovals()
       .then((data) => setApprovals(data || []))
-      .catch(() => fetchApprovals().then((res) => setApprovals(res.data || [])))
+      .catch((err) => setError(err.message || "Failed to load approvals"))
       .finally(() => setLoading(false));
   }, []);
 

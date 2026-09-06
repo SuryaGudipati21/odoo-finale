@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSubscriptions, createSubscription } from "../services/api";
-import { fetchSubscriptions, createSubscriptionPlan } from "../services/mockApi";
+import { getSubscriptions, createSubscription, getCustomers } from "../services/api";
+import { fetchSubscriptions } from "../services/mockApi";
 import { formatDate, formatCurrency } from "../utils/formatting";
 import Layout from "../components/Layout";
 
 function SubscriptionsList() {
   const navigate = useNavigate();
   const [subs, setSubs] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -16,7 +17,8 @@ function SubscriptionsList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
-    customer_name: "Acme Corp",
+    customer_id: null,
+    customer_name: "",
     plan_name: "",
     cycle: "MONTHLY",
     amount: "1500",
@@ -52,6 +54,18 @@ function SubscriptionsList() {
 
   useEffect(() => {
     loadSubscriptions();
+    getCustomers()
+      .then((custs) => {
+        setCustomers(custs || []);
+        if (custs && custs.length > 0) {
+          setForm((prev) => ({
+            ...prev,
+            customer_id: custs[0].id,
+            customer_name: custs[0].name,
+          }));
+        }
+      })
+      .catch(console.error);
   }, []);
 
   const count = (status) => subs.filter((s) => (s.status || "").toUpperCase() === status).length;
@@ -61,46 +75,28 @@ function SubscriptionsList() {
     if (!form.plan_name.trim()) return;
 
     setIsSubmitting(true);
+    setError(null);
     try {
-      let created = null;
-      try {
-        created = await createSubscription({
-          customer_id: 1,
-          plan_name: form.plan_name,
-          cycle: form.cycle,
-          amount: Number(form.amount) || 0,
-        });
-      } catch (apiErr) {
-        console.warn("Backend creation failed, saving to mock layer:", apiErr);
-        const mockRes = await createSubscriptionPlan({
-          customer_name: form.customer_name,
-          plan_name: form.plan_name,
-          cycle: form.cycle,
-          amount: Number(form.amount) || 0,
-        });
-        created = {
-          id: mockRes.data.id,
-          customer_name: mockRes.data.customer,
-          plan_name: mockRes.data.plan,
-          cycle: mockRes.data.cycle.toUpperCase(),
-          next_bill_date: new Date(Date.now() + 30 * 86400000).toISOString(),
-          amount: mockRes.data.amount_monthly,
-          status: "ACTIVE",
-        };
-      }
+      const custId = form.customer_id || (customers[0] ? customers[0].id : 1);
+      const created = await createSubscription({
+        customer_id: custId,
+        plan_name: form.plan_name,
+        cycle: form.cycle,
+        amount: Number(form.amount) || 0,
+      });
 
       setSubs((prev) => [created, ...prev]);
-      setSuccessMsg(`Plan "${form.plan_name}" successfully created and activated!`);
+      setSuccessMsg(`Plan "${form.plan_name}" successfully created and saved to database!`);
       setIsModalOpen(false);
-      setForm({
-        customer_name: "Acme Corp",
+      setForm((prev) => ({
+        ...prev,
         plan_name: "",
         cycle: "MONTHLY",
         amount: "1500",
-      });
+      }));
       setTimeout(() => setSuccessMsg(null), 5000);
     } catch (err) {
-      setError(err.message || "Failed to create plan");
+      setError(err.message || "Failed to create subscription plan on backend");
     } finally {
       setIsSubmitting(false);
     }
@@ -294,14 +290,21 @@ function SubscriptionsList() {
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1">
                   Customer
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={form.customer_name}
-                  onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
-                  placeholder="E.g. Acme Corp"
+                <select
+                  value={form.customer_id || (customers[0] ? customers[0].id : "")}
+                  onChange={(e) => {
+                    const cId = Number(e.target.value);
+                    const found = customers.find((c) => c.id === cId);
+                    setForm({ ...form, customer_id: cId, customer_name: found ? found.name : "" });
+                  }}
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:bg-white focus:border-blue-500 focus:outline-none transition-colors"
-                />
+                >
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.tier?.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
