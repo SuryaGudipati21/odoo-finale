@@ -30,6 +30,17 @@ const WarehouseSplit = ({ quotationId }) => {
     loadWarehouseData();
   }, [quotationId]);
 
+  const handleQuantityChange = (lineIdx, splitIdx, newQty) => {
+    setWarehouseData((prev) => {
+      if (!prev) return prev;
+      const updated = JSON.parse(JSON.stringify(prev));
+      const parsedQty = Math.max(0, parseInt(newQty, 10) || 0);
+      updated.order_lines[lineIdx].warehouse_splits[splitIdx].quantity = parsedQty;
+      setSelectedSplits(updated);
+      return updated;
+    });
+  };
+
   const handleConfirmSplit = async () => {
     try {
       setConfirming(true);
@@ -153,9 +164,22 @@ const WarehouseSplit = ({ quotationId }) => {
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-gray-400 text-sm">Quantity</span>
-                          <span className="text-white font-bold text-lg">
-                            {split.quantity} units
-                          </span>
+                          {manualOverride ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                value={split.quantity}
+                                onChange={(e) => handleQuantityChange(lineIdx, splitIdx, e.target.value)}
+                                className="w-20 px-2 py-1 bg-gray-800 border border-blue-500/50 rounded text-white font-bold text-right focus:outline-none"
+                              />
+                              <span className="text-xs text-gray-400">units</span>
+                            </div>
+                          ) : (
+                            <span className="text-white font-bold text-lg">
+                              {split.quantity} units
+                            </span>
+                          )}
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-gray-400 text-sm">Shipments</span>
@@ -173,13 +197,11 @@ const WarehouseSplit = ({ quotationId }) => {
                     </div>
 
                     {/* Quantity Adjustment (Mobile-friendly) */}
-                    {!manualOverride && (
-                      <div className="mt-3 pt-3 border-t border-gray-700/50">
-                        <p className="text-xs text-gray-400 mb-2">
-                          Auto-optimized based on stock levels
-                        </p>
-                      </div>
-                    )}
+                    <div className="mt-3 pt-3 border-t border-gray-700/50">
+                      <p className="text-xs text-gray-400">
+                        {manualOverride ? "Manual mode: Edit quantities per warehouse above" : "Auto-optimized based on stock levels"}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>

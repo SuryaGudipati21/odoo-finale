@@ -2,16 +2,10 @@
 // Owner: Admin config UI — products/price lists, discount tiers & approval chains,
 // warehouses, subscription plans (problem statement sections A2–A5).
 // Location: frontend/src/pages/BackendConfig.jsx
-//
-// NOTE: No backend config endpoints exist yet, so this manages local state only
-// and does not persist. It exists so the Admin role has a real screen to configure
-// the data that drives discount ceilings (riskScore.js), warehouses (WarehouseSplit),
-// and subscription plans (SubscriptionBilling) — currently those are all hardcoded
-// in mockData.js. Wiring this up to actually control that mock data is the natural
-// next step once a real backend exists.
 
 import { useState } from "react";
 import { formatCurrency } from "../utils/formatting";
+import Layout from "../components/Layout";
 
 const TABS = [
   { id: "products", label: "Products & Price Lists" },
@@ -39,17 +33,17 @@ function ProductsTab() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={addProduct} className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-gray-900/40 border border-gray-700/30 rounded-lg p-4">
+      <form onSubmit={addProduct} className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4">
         <input
           placeholder="Product name"
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
-          className="px-3 py-2 bg-gray-800/50 border border-gray-700/50 text-white rounded-lg focus:border-blue-500/50 focus:outline-none"
+          className="px-3 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg focus:border-blue-500 focus:outline-none"
         />
         <select
           value={form.category}
           onChange={(e) => setForm({ ...form, category: e.target.value })}
-          className="px-3 py-2 bg-gray-800/50 border border-gray-700/50 text-white rounded-lg focus:border-blue-500/50 focus:outline-none"
+          className="px-3 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg focus:border-blue-500 focus:outline-none"
         >
           <option>Hardware</option>
           <option>Software</option>
@@ -60,21 +54,21 @@ function ProductsTab() {
           placeholder="Price"
           value={form.price}
           onChange={(e) => setForm({ ...form, price: e.target.value })}
-          className="px-3 py-2 bg-gray-800/50 border border-gray-700/50 text-white rounded-lg focus:border-blue-500/50 focus:outline-none"
+          className="px-3 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg focus:border-blue-500 focus:outline-none"
         />
-        <button className="px-4 py-2 bg-blue-600/30 hover:bg-blue-600/40 text-blue-200 font-semibold rounded-lg border border-blue-500/40">
+        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-2xs transition-all btn-press">
           + Add Product
         </button>
       </form>
 
       <div className="space-y-2">
         {products.map((p) => (
-          <div key={p.id} className="flex items-center justify-between bg-gray-900/40 border border-gray-700/30 rounded-lg p-4">
+          <div key={p.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
             <div>
-              <p className="text-white font-semibold">{p.name}</p>
-              <p className="text-xs text-gray-400">{p.category}</p>
+              <p className="text-gray-900 font-semibold">{p.name}</p>
+              <p className="text-xs text-gray-500">{p.category}</p>
             </div>
-            <p className="text-green-300 font-bold">{formatCurrency(p.price)}</p>
+            <p className="text-emerald-700 font-bold">{formatCurrency(p.price)}</p>
           </div>
         ))}
       </div>
@@ -107,24 +101,24 @@ function DiscountTiersTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">
-          Tier Discount Ceilings
+        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+          Customer Tier Concession Ceilings
         </h3>
         <div className="space-y-2">
           {tiers.map((t, idx) => (
-            <div key={t.tier} className="flex items-center justify-between bg-gray-900/40 border border-gray-700/30 rounded-lg p-4">
+            <div key={t.tier} className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
               <div>
-                <p className="text-white font-semibold">{t.tier}</p>
-                <p className="text-xs text-gray-400">{t.approvalLevel}</p>
+                <p className="text-gray-900 font-semibold">{t.tier}</p>
+                <p className="text-xs text-gray-500">{t.approvalLevel}</p>
               </div>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
                   value={t.ceiling}
                   onChange={(e) => updateTierCeiling(idx, e.target.value)}
-                  className="w-20 px-2 py-1.5 bg-gray-800/50 border border-gray-700/50 text-white rounded-lg text-right focus:border-blue-500/50 focus:outline-none"
+                  className="w-20 px-2 py-1.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-right focus:bg-white focus:border-blue-500 focus:outline-none"
                 />
-                <span className="text-gray-400 text-sm">% max</span>
+                <span className="text-gray-500 text-sm font-medium">% max</span>
               </div>
             </div>
           ))}
@@ -132,24 +126,24 @@ function DiscountTiersTab() {
       </div>
 
       <div>
-        <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">
-          Category Discount Ceilings
+        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+          Product Category Ceilings
         </h3>
         <p className="text-xs text-gray-500 mb-3">
           A line's actual ceiling is the tier ceiling, further capped by its category ceiling if stricter.
         </p>
         <div className="space-y-2">
           {categoryCeilings.map((c, idx) => (
-            <div key={c.category} className="flex items-center justify-between bg-gray-900/40 border border-gray-700/30 rounded-lg p-4">
-              <p className="text-white font-semibold">{c.category}</p>
+            <div key={c.category} className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
+              <p className="text-gray-900 font-semibold">{c.category}</p>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
                   value={c.ceiling}
                   onChange={(e) => updateCategoryCeiling(idx, e.target.value)}
-                  className="w-20 px-2 py-1.5 bg-gray-800/50 border border-gray-700/50 text-white rounded-lg text-right focus:border-blue-500/50 focus:outline-none"
+                  className="w-20 px-2 py-1.5 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg text-right focus:bg-white focus:border-blue-500 focus:outline-none"
                 />
-                <span className="text-gray-400 text-sm">% max</span>
+                <span className="text-gray-500 text-sm font-medium">% max</span>
               </div>
             </div>
           ))}
@@ -178,26 +172,26 @@ function WarehousesTab() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={addWarehouse} className="flex gap-3 bg-gray-900/40 border border-gray-700/30 rounded-lg p-4">
+      <form onSubmit={addWarehouse} className="flex gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4">
         <input
           placeholder="New warehouse name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="flex-1 px-3 py-2 bg-gray-800/50 border border-gray-700/50 text-white rounded-lg focus:border-blue-500/50 focus:outline-none"
+          className="flex-1 px-3 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg focus:border-blue-500 focus:outline-none"
         />
-        <button className="px-4 py-2 bg-blue-600/30 hover:bg-blue-600/40 text-blue-200 font-semibold rounded-lg border border-blue-500/40">
+        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-2xs transition-all btn-press">
           + Add Warehouse
         </button>
       </form>
 
       <div className="space-y-2">
         {warehouses.map((w) => (
-          <div key={w.id} className="flex items-center justify-between bg-gray-900/40 border border-gray-700/30 rounded-lg p-4">
+          <div key={w.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
             <div>
-              <p className="text-white font-semibold">{w.name}</p>
-              <p className="text-xs text-gray-400">{w.id}</p>
+              <p className="text-gray-900 font-semibold">{w.name}</p>
+              <p className="text-xs text-gray-500">{w.id}</p>
             </div>
-            <p className="text-xs text-gray-400">Shipping weight: {w.shippingWeight}x</p>
+            <p className="text-xs text-gray-500 font-medium">Shipping multiplier: {w.shippingWeight}x</p>
           </div>
         ))}
       </div>
@@ -214,19 +208,19 @@ function SubscriptionPlansTab() {
   return (
     <div className="space-y-2">
       {plans.map((p) => (
-        <div key={p.id} className="flex items-center justify-between bg-gray-900/40 border border-gray-700/30 rounded-lg p-4">
+        <div key={p.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
           <div>
-            <p className="text-white font-semibold">{p.name}</p>
-            <p className="text-xs text-gray-400">{p.cycle} billing</p>
+            <p className="text-gray-900 font-semibold">{p.name}</p>
+            <p className="text-xs text-gray-500">{p.cycle} billing</p>
           </div>
           <span
-            className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
+            className={`px-3 py-1 rounded-full text-xs font-semibold border ${
               p.prorationEnabled
-                ? "bg-green-500/20 text-green-300 border-green-500/30"
-                : "bg-gray-500/20 text-gray-400 border-gray-500/30"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-gray-100 text-gray-600 border-gray-200"
             }`}
           >
-            {p.prorationEnabled ? "Proration on" : "Proration off"}
+            {p.prorationEnabled ? "Proration On" : "Proration Off"}
           </span>
         </div>
       ))}
@@ -253,23 +247,25 @@ function BackendConfig() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 lg:p-6 space-y-6">
-      <div className="bg-gradient-to-r from-gray-600/10 to-blue-400/5 border border-gray-600/20 rounded-xl p-6">
-        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">Backend Configuration</h1>
-        <p className="text-gray-400 text-sm">
-          Manage products, price lists, discount tiers, warehouses, and subscription plans
+    <Layout>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-1">
+          Catalog & Rules Configuration
+        </h1>
+        <p className="text-gray-500 text-sm">
+          Configure product price books, category discount ceilings, warehouse nodes, and recurring plans
         </p>
       </div>
 
-      <div className="flex border-b border-gray-700/50 gap-1 overflow-x-auto">
+      <div className="flex border-b border-gray-200 gap-2 mb-6 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+            className={`px-4 py-2.5 text-sm font-semibold transition-all duration-150 whitespace-nowrap rounded-t-lg ${
               activeTab === tab.id
-                ? "text-blue-400 border-b-2 border-blue-500"
-                : "text-gray-400 hover:text-gray-300"
+                ? "text-blue-600 border-b-2 border-blue-600 bg-white"
+                : "text-gray-500 hover:text-gray-900"
             }`}
           >
             {tab.label}
@@ -277,9 +273,9 @@ function BackendConfig() {
         ))}
       </div>
 
-      <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6">{renderTab()}</div>
-    </div>
+      <div className="bg-white border border-gray-200/90 rounded-2xl p-6 shadow-xs">{renderTab()}</div>
+    </Layout>
   );
 }
 
-export default BackendConfig;
+export default BackendConfig;

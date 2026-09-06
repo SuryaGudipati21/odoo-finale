@@ -10,38 +10,55 @@ import {
   addLineToQuotation,
   applyDiscount,
   deleteLineFromQuotation,
+  submitQuotationForApproval,
+  confirmQuotation,
+  saveQuotationDraft,
 } from "../services/mockApi";
 
-export function useQuotation(id) {
+export function useQuotation(id, actorName) {
   const [quotation, setQuotation] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
     if (!id) return;
     setLoading(true);
-    getQuotation(id)
+    getQuotation(id, actorName)
       .then((res) => setQuotation(res.data))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, actorName]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
   const handleAddLine = async (line) => {
-    const res = await addLineToQuotation(id, line);
+    const res = await addLineToQuotation(id, line, actorName);
     setQuotation({ ...res.data });
   };
 
   const handleApplyDiscount = async (lineId, percent) => {
-    const res = await applyDiscount(id, lineId, percent);
+    const res = await applyDiscount(id, lineId, percent, actorName);
     setQuotation({ ...res.data });
   };
 
   const handleDeleteLine = async (lineId) => {
-    const res = await deleteLineFromQuotation(id, lineId);
+    const res = await deleteLineFromQuotation(id, lineId, actorName);
     setQuotation({ ...res.data });
   };
 
-  return { quotation, loading, handleAddLine, handleApplyDiscount, handleDeleteLine };
+  const handleSubmit = async (requiresApproval) => {
+    const res = requiresApproval
+      ? await submitQuotationForApproval(id, actorName)
+      : await confirmQuotation(id, actorName);
+    setQuotation({ ...res.data });
+    return res;
+  };
+
+  const handleSaveDraft = async () => {
+    const res = await saveQuotationDraft(id, actorName);
+    setQuotation({ ...res.data });
+    return res;
+  };
+
+  return { quotation, loading, handleAddLine, handleApplyDiscount, handleDeleteLine, handleSubmit, handleSaveDraft };
 }

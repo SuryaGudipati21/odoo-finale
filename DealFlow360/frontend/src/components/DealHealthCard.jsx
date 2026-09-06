@@ -15,44 +15,44 @@ const DealHealthCard = ({
 }) => {
   const variants = {
     blue: {
-      bg: "from-blue-600/20 to-blue-400/10",
-      border: "border-blue-500/30",
-      text: "text-blue-300",
-      icon_bg: "bg-blue-500/20",
-      trend_positive: "text-green-400",
-      trend_negative: "text-red-400",
+      bg: "from-blue-50/70 via-white to-indigo-50/40",
+      border: "border-blue-200/80 hover:border-blue-300",
+      text: "text-blue-700",
+      icon_bg: "bg-blue-100 text-blue-600",
+      trend_positive: "text-blue-600",
+      trend_negative: "text-emerald-600",
     },
     green: {
-      bg: "from-green-600/20 to-green-400/10",
-      border: "border-green-500/30",
-      text: "text-green-300",
-      icon_bg: "bg-green-500/20",
-      trend_positive: "text-green-400",
-      trend_negative: "text-red-400",
+      bg: "from-emerald-50/70 via-white to-green-50/40",
+      border: "border-emerald-200/80 hover:border-emerald-300",
+      text: "text-emerald-700",
+      icon_bg: "bg-emerald-100 text-emerald-600",
+      trend_positive: "text-emerald-600",
+      trend_negative: "text-red-500",
     },
     red: {
-      bg: "from-red-600/20 to-red-400/10",
-      border: "border-red-500/30",
-      text: "text-red-300",
-      icon_bg: "bg-red-500/20",
-      trend_positive: "text-green-400",
-      trend_negative: "text-red-400",
+      bg: "from-rose-50/70 via-white to-red-50/40",
+      border: "border-rose-200/80 hover:border-rose-300",
+      text: "text-rose-700",
+      icon_bg: "bg-rose-100 text-rose-600",
+      trend_positive: "text-rose-600",
+      trend_negative: "text-emerald-600",
     },
     purple: {
-      bg: "from-purple-600/20 to-purple-400/10",
-      border: "border-purple-500/30",
-      text: "text-purple-300",
-      icon_bg: "bg-purple-500/20",
-      trend_positive: "text-green-400",
-      trend_negative: "text-red-400",
+      bg: "from-purple-50/70 via-white to-fuchsia-50/40",
+      border: "border-purple-200/80 hover:border-purple-300",
+      text: "text-purple-700",
+      icon_bg: "bg-purple-100 text-purple-600",
+      trend_positive: "text-purple-600",
+      trend_negative: "text-emerald-600",
     },
     amber: {
-      bg: "from-amber-600/20 to-amber-400/10",
-      border: "border-amber-500/30",
-      text: "text-amber-300",
-      icon_bg: "bg-amber-500/20",
-      trend_positive: "text-green-400",
-      trend_negative: "text-red-400",
+      bg: "from-amber-50/70 via-white to-orange-50/40",
+      border: "border-amber-200/80 hover:border-amber-300",
+      text: "text-amber-700",
+      icon_bg: "bg-amber-100 text-amber-600",
+      trend_positive: "text-amber-600",
+      trend_negative: "text-emerald-600",
     },
   };
 
@@ -63,53 +63,48 @@ const DealHealthCard = ({
   return (
     <div
       onClick={onClick}
-      className={`relative overflow-hidden rounded-xl border ${style.border} bg-gradient-to-br ${style.bg} p-6 backdrop-blur-sm transition-all duration-300 hover:border-opacity-100 ${
-        onClick ? "cursor-pointer hover:shadow-lg hover:shadow-blue-500/20 transform hover:scale-105" : ""
+      className={`relative overflow-hidden rounded-2xl border ${style.border} bg-gradient-to-br ${style.bg} p-6 shadow-xs hover:shadow-md transition-all duration-200 ${
+        onClick ? "cursor-pointer transform hover:-translate-y-0.5" : ""
       }`}
     >
-      {/* Animated Background Orb */}
-      <div className="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl"></div>
+      {/* Subtle Background Glow */}
+      <div className="absolute -top-8 -right-8 w-24 h-24 bg-white/40 rounded-full blur-xl pointer-events-none"></div>
 
       {/* Content */}
-      <div className="relative z-10 space-y-4">
+      <div className="relative z-10 space-y-3">
         {/* Header: Title + Icon */}
         <div className="flex items-start justify-between">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
             {title}
           </h3>
           {icon && (
-            <div className={`${style.icon_bg} p-2 rounded-lg backdrop-blur-sm`}>
-              <span className="text-lg">{icon}</span>
+            <div className={`${style.icon_bg} w-9 h-9 rounded-xl flex items-center justify-center shadow-2xs`}>
+              <span className="text-base">{icon}</span>
             </div>
           )}
         </div>
 
         {/* Main Value */}
         <div>
-          <p className={`text-4xl font-bold ${style.text} leading-tight`}>
+          <p className={`text-3xl font-extrabold ${style.text} tracking-tight leading-tight`}>
             {value}
           </p>
           {label && (
-            <p className="text-xs text-gray-400 mt-2">{label}</p>
+            <p className="text-xs text-gray-500 mt-1 font-medium">{label}</p>
           )}
         </div>
 
         {/* Trend Indicator */}
         {trend && trendValue !== undefined && (
-          <div className="flex items-center gap-2 pt-2 border-t border-white/10">
-            <span className={`text-sm font-semibold ${trendColor}`}>
+          <div className="flex items-center gap-1.5 pt-2 border-t border-gray-100">
+            <span className={`text-xs font-bold ${trendColor}`}>
               {isPositiveTrend ? "↑" : "↓"} {Math.abs(trendValue)}%
             </span>
             <span className="text-xs text-gray-400">
-              vs last period
+              vs previous period
             </span>
           </div>
         )}
-      </div>
-
-      {/* Hover Glow Effect */}
-      <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-        <div className={`absolute inset-0 bg-gradient-to-r ${style.bg} opacity-0 group-hover:opacity-20 transition-opacity duration-300`}></div>
       </div>
     </div>
   );

@@ -1,26 +1,24 @@
-// Owner: Pardha — Quotation Builder screen (products + cart), B3
-// Location: frontend/src/pages/QuotationBuilder.jsx
-
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuotation } from "../hooks/useQuotation";
+import { useAuth } from "../context/AuthContext";
 import { mockCustomer } from "../data/mockData";
 import QuotationForm from "../components/QuotationForm";
 import UpsellPanel from "../components/UpsellPanel";
-import { formatCurrency } from "../utils/formatting";
-import { estimateBlendedRiskScore, riskBand } from "../utils/riskScore";
-
-const RISK_STYLES = {
-  low: "bg-green-500/10 border-green-500/30 text-green-300",
-  medium: "bg-amber-500/10 border-amber-500/30 text-amber-300",
-  high: "bg-red-500/10 border-red-500/30 text-red-300",
-};
+import AuditTrail from "../components/AuditTrail";
+import Layout from "../components/Layout";
+import { formatCurrency, formatDateTime } from "../utils/formatting";
+import { estimateBlendedRiskScore } from "../utils/riskScore";
 
 function QuotationBuilder() {
   const { id } = useParams();
-  const quotationId = id ?? 1; // matches route "/quotations/builder/:id?" default
-  const { quotation, handleAddLine, handleApplyDiscount, handleDeleteLine } =
-    useQuotation(quotationId);
-    
+  const navigate = useNavigate();
+  const quotationId = id ?? 1;
+  const { user } = useAuth();
+  const actorName = user?.full_name || user?.email || "You";
+  const { quotation, handleAddLine, handleApplyDiscount, handleDeleteLine, handleSubmit, handleSaveDraft } = useQuotation(quotationId, actorName);
+  const [approvalNotice, setApprovalNotice] = useState(null);
+
   const riskPreview = useMemo(() => {
     if (!quotation) return null;
     return estimateBlendedRiskScore(quotation.lines, mockCustomer.tier);
@@ -28,133 +26,209 @@ function QuotationBuilder() {
 
   if (!quotation) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-12 h-12 bg-blue-500/30 rounded-full"></div>
-          <p className="text-gray-400 text-sm">Loading quotation...</p>
-        </div>
-      </div>
+      <Layout>
+        <p className="text-gray-400 text-sm">Loading quotation...</p>
+      </Layout>
     );
   }
 
-  const orderTotal = quotation.lines.reduce(
-    (sum, line) => sum + line.quantity * line.unit_price * (1 - (line.discount_percent || 0) / 100),
-    0
-  );
+  const lineStatus = (line) => {
+    const over = riskPreview?.lineBreakdown.find((l) => l.lineId === line.id)?.overage ?? 0;
+    return over > 0 ? `OVER (+${over}pt)` : "OK";
+  };
 
-  const band = riskPreview ? riskBand(riskPreview.blendedScore) : "low";
+  const displayRef = String(quotation.id).startsWith("Q-") ? quotation.id : `Q-${quotation.id}`;
+  const customerName = quotation.customer || quotation.customer_name || mockCustomer.name;
 
   return (
-    <div className="max-w-6xl mx-auto p-4 lg:p-6 space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600/10 to-purple-400/5 border border-blue-500/20 rounded-xl p-6">
-        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-1">
-          Quotation #{quotation.id}
-        </h1>
-        <p className="text-gray-400 text-sm">
-          {mockCustomer.name} · {mockCustomer.tier.toUpperCase()} tier · Status:{" "}
-          <span className="text-blue-300 font-semibold">{quotation.status}</span>
-        </p>
+    <Layout>
+      {/* Back breadcrumb */}
+      <div className="flex items-center gap-4 mb-4 text-xs font-semibold text-gray-500">
+        <Link to="/quotations" className="hover:text-blue-600 transition-colors flex items-center gap-1">
+          <span>←</span>
+          <span>Back to Quotations Pipeline</span>
+        </Link>
+        <span className="text-gray-300">|</span>
+        <Link to="/approvals" className="hover:text-blue-600 transition-colors flex items-center gap-1">
+          <span>⚖️</span>
+          <span>Approvals Queue</span>
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main: line items */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 space-y-3">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-              Order Lines
-            </h2>
-
-            {quotation.lines.map((line) => (
-              <div
-                key={line.id}
-                className="bg-gray-900/40 border border-gray-700/30 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-5 gap-3 items-center"
-              >
-                <div className="sm:col-span-2">
-                  <p className="text-white font-semibold">{line.product_name}</p>
-                  <p className="text-xs text-gray-400">{line.category}</p>
-                </div>
-                <p className="text-gray-300 text-sm">
-                  {line.quantity} × {formatCurrency(line.unit_price)}
-                </p>
-                <div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={line.discount_percent}
-                    onChange={(e) => handleApplyDiscount(line.id, Number(e.target.value))}
-                    className="w-20 px-2 py-1.5 bg-gray-800/50 border border-gray-700/50 text-white rounded-lg text-sm focus:border-blue-500/50 focus:outline-none"
-                  />
-                  <span className="text-xs text-gray-400 ml-1">%</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-green-300 font-bold">
-                    {formatCurrency(
-                      line.quantity * line.unit_price * (1 - (line.discount_percent || 0) / 100)
-                    )}
-                  </span>
-                  <button
-                    onClick={() => handleDeleteLine(line.id)}
-                    className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-500/30 hover:bg-red-500/10 transition-colors duration-200"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <QuotationForm onAddLine={handleAddLine} />
-        </div>
-
-        {/* Sidebar: totals, risk preview, upsell */}
-        <div className="space-y-4">
-          <div className="bg-gradient-to-br from-blue-600/20 to-blue-400/10 border border-blue-500/30 rounded-xl p-6">
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Order Total</p>
-            <p className="text-4xl font-bold text-white mb-1">{formatCurrency(orderTotal)}</p>
-            <p className="text-xs text-gray-400">Est. margin: {formatCurrency(quotation.margin)}</p>
-          </div>
-
-          {riskPreview && (
-            <div className={`rounded-xl p-4 border ${RISK_STYLES[band]}`}>
-              <p className="text-sm font-semibold mb-1">
-                {riskPreview.blendedScore > 0 ? "⚠️ Approval likely needed" : "✓ Within discount limits"}
-              </p>
-              <p className="text-xs opacity-80">
-                {riskPreview.blendedScore > 0
-                  ? `Est. ${riskPreview.blendedScore} pts over line-level discount ceilings.`
-                  : "All lines are within their tier/category ceilings."}
-              </p>
-              <p className="text-[10px] text-gray-400 mt-2 italic">
-                Preview only — backend risk score is authoritative.
+      {/* Pending Approval Banner */}
+      {(quotation.status === "PENDING_APPROVAL" || quotation.status === "REAPPROVAL_REQUIRED") && (
+        <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-4 mb-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl shrink-0">⚖️</span>
+            <div>
+              <p className="font-bold text-sm">Approval Review Pending</p>
+              <p className="text-xs text-amber-700">
+                This quotation includes concessions exceeding limit thresholds. It is pending decision by Sales Manager and Finance.
               </p>
             </div>
-          )}
-
-          <UpsellPanel
-            quotationId={quotation.id}
-            onAddSuggestion={(s) =>
-              handleAddLine({
-                id: Date.now(),
-                product_id: s.product_id,
-                product_name: s.product_name,
-                category: s.category,
-                quantity: 1,
-                unit_price: s.unit_price,
-                discount_percent: 0,
-                line_total: s.unit_price,
-              })
-            }
-          />
-
-          <button className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-semibold rounded-lg transition-all duration-200">
-            {riskPreview?.blendedScore > 0 ? "Submit for Approval" : "Confirm Quotation"}
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(`/approvals/${quotation.id}`)}
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-xs hover:shadow transition-all duration-150 flex items-center gap-1.5 shrink-0 self-start sm:self-auto btn-press"
+          >
+            <span>Review Approval</span>
+            <span>→</span>
           </button>
         </div>
+      )}
+
+      <h1 className="text-3xl font-bold text-gray-900 mb-1">
+        Quotation Detail: {displayRef} ({customerName})
+      </h1>
+      <p className="text-gray-500 text-sm mb-1">
+        Opened by clicking a row on the Quotations list. Add products, apply discounts, review upsells.
+      </p>
+      <p className="text-gray-400 text-xs mb-6">
+        Created by <span className="font-medium text-gray-600">{quotation.created_by || "Unknown user"}</span>
+        {quotation.created_at && <> on {formatDateTime(quotation.created_at)}</>}
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Customer</label>
+          <input readOnly value={customerName} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Price List</label>
+          <input readOnly value={`${mockCustomer.tier.toUpperCase()} tier`} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50" />
+        </div>
       </div>
-    </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-4">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th className="text-left px-4 py-3">Product</th>
+              <th className="text-left px-4 py-3">Qty</th>
+              <th className="text-left px-4 py-3">Price</th>
+              <th className="text-left px-4 py-3">Discount</th>
+              <th className="text-left px-4 py-3">Limit</th>
+              <th className="text-left px-4 py-3">Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {quotation.lines.map((line) => {
+              const status = lineStatus(line);
+              return (
+                <tr key={line.id}>
+                  <td className="px-4 py-3 text-gray-900 font-medium">{line.product_name}</td>
+                  <td className="px-4 py-3 text-gray-600">{line.quantity}</td>
+                  <td className="px-4 py-3 text-gray-600">{formatCurrency(line.unit_price)}</td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      min="0" max="100"
+                      value={line.discount_percent}
+                      onChange={(e) => handleApplyDiscount(line.id, Number(e.target.value))}
+                      className="w-16 px-2 py-1 border border-gray-300 rounded"
+                    />%
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">—</td>
+                  <td className="px-4 py-3">
+                    <span className={status === "OK" ? "text-green-600 font-medium" : "text-red-600 font-semibold"}>
+                      {status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => handleDeleteLine(line.id)} className="text-red-500 text-xs hover:underline">
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-6">
+        Discount is checked against each line's own limit live, as soon as it is entered, not only at submit time.
+      </div>
+
+      <h2 className="text-lg font-semibold text-blue-600 mb-3">Upsell and Cross-Sell Suggestions</h2>
+      <UpsellPanel
+        quotationId={quotation.id}
+        onAddSuggestion={(s) =>
+          handleAddLine({
+            id: Date.now(), product_id: s.product_id, product_name: s.product_name,
+            category: s.category, quantity: 1, unit_price: s.unit_price,
+            discount_percent: 0, line_total: s.unit_price,
+          })
+        }
+      />
+
+      <div className="mt-6">
+        <QuotationForm onAddLine={handleAddLine} />
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-blue-600 mb-3">Who Did What</h2>
+        <AuditTrail entries={quotation.activity || []} title="Quotation Activity" />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mt-6">
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+        >
+          Save Draft
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            const requiresAppr = riskPreview?.blendedScore > 0;
+            await handleSubmit(requiresAppr);
+            if (requiresAppr) {
+              setApprovalNotice("Quotation submitted for approval! You can now click 'Review Approval →' to open the approval decision workflow.");
+            }
+          }}
+          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-xs transition-all duration-150 btn-press"
+        >
+          {riskPreview?.blendedScore > 0 ? "Submit for Approval" : "Confirm Quotation"}
+        </button>
+
+        {(quotation.status === "PENDING_APPROVAL" || quotation.status === "REAPPROVAL_REQUIRED") && (
+          <button
+            type="button"
+            onClick={() => navigate(`/approvals/${quotation.id}`)}
+            className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-sm hover:shadow transition-all duration-150 flex items-center gap-2 btn-press"
+            title="Review approval workflow"
+          >
+            <span>⚖️</span>
+            <span>Review Approval →</span>
+          </button>
+        )}
+      </div>
+
+      {approvalNotice && (
+        <div className="mt-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3.5 rounded-xl flex items-center justify-between shadow-2xs animate-fade-in">
+          <div className="flex items-center gap-2">
+            <span>✓</span>
+            <span className="font-semibold">{approvalNotice}</span>
+          </div>
+          <button
+            onClick={() => navigate(`/approvals/${quotation.id}`)}
+            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors ml-3 shrink-0"
+          >
+            Review Approval →
+          </button>
+        </div>
+      )}
+
+      {quotation.status !== "DRAFT" && (
+        <p className="text-sm text-gray-500 mt-3">
+          Current status: <span className="font-semibold text-gray-700">{quotation.status.replace(/_/g, " ")}</span>
+        </p>
+      )}
+    </Layout>
   );
 }
 

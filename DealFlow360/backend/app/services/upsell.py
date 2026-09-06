@@ -4,6 +4,8 @@ from app.models.upsell import ProductPairing
 
 
 def get_suggestions(db: Session, product_ids: list[int], min_margin: float = 0) -> list[dict]:
+    if not product_ids:
+        return []
     pairings = (
         db.query(ProductPairing)
         .filter(ProductPairing.base_product_id.in_(product_ids))

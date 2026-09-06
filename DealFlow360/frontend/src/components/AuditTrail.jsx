@@ -29,6 +29,13 @@ const STATUS_STYLES = {
     dot: "bg-orange-500/20 border-orange-500/40",
     icon: "↺",
   },
+  // Generic logged actions (add line, apply discount, save draft, etc.) —
+  // distinct from the approval-decision statuses above.
+  done: {
+    badge: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+    dot: "bg-blue-500/20 border-blue-500/40",
+    icon: "•",
+  },
 };
 
 const formatTimestamp = (value) => {
@@ -111,7 +118,7 @@ const AuditTrail = ({ steps = [], entries = [], title = "Approval History" }) =>
 
                 {(item.reviewed_by || item.user) && (
                   <p className="text-sm text-gray-400 mt-2">
-                    Reviewed by{" "}
+                    {item.reviewed_by ? "Reviewed by" : "By"}{" "}
                     <span className="text-gray-300 font-medium">
                       {item.reviewed_by || item.user}
                     </span>

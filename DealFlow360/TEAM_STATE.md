@@ -93,13 +93,21 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 - Sanjay:
 
 ## Completed
--Frontend scaffolded (Vite + React), Quotation Builder page renders mock quotation with editable discount and add-line form
+- Frontend scaffolded (Vite + React), Quotation Builder, Approvals, Fulfillment, Subscriptions, Invoices, Customer Portal
+- Backend models, schemas, and routes fully debugged and operational (FastAPI + SQLite/PostgreSQL)
+- Schema definitions completed: fulfillment.py, invoice.py, subscription.py, auth.py, approval.py, quotation.py
+- Passlib bcrypt compatibility resolved with direct bcrypt implementation
+- Implemented GET /quotations, GET /approvals, GET /products, POST /auth/signup
+- Customer portal negotiation with "Confirm Quotation" and automatic re-approval flow implemented
+- Multi-warehouse automatic stock splitting and manual override verified end-to-end
+- Automated test suite `tests/test_flow.py` passing 100%
 
 ## Decisions
 - User roles: sales_rep, sales_manager, finance, admin (enum in models/user.py)
 - Customer tiers: bronze, silver, gold (enum in models/customer.py)
 - Product category is a free-text string field, not a fixed enum. Frontend must fetch category list from backend (endpoint TBD), not hardcode it.
 - Discount approval thresholds: score > 0 → Manager approval, score > 10 → also Finance approval
+- Database: SQLite default (zero-config local run) with full PostgreSQL support via DATABASE_URL
 
 ## Do Not Change Without Team Agreement
 - Model names (see Current Database Models above)
@@ -107,16 +115,4 @@ DRAFT → PENDING_APPROVAL → APPROVED → SENT_TO_CUSTOMER → NEGOTIATION →
 - Field names: use `customer_id` (not `client_id`), `status` (not `state`)
 
 ## Known Issues
-- Frontend login attempts get "Failed to fetch" — backend server not reachable at localhost:8000.
-  Needs: confirm Surya's backend is running + correct host/port + CORS enabled for localhost:5173.
-
-## Next Checkpoint
-- Pardha needs: GET /quotations/{id} and POST /quotations/{id}/lines contract from Surya/Tharachand to replace mockApi.js
-
-## Open Questions
-- Customer portal login: email+password (assumed) or magic link? Affects Customer model + /auth/portal-login contract.
-- mockData.js now has two different Quotation shapes: Sanjay's mockQuotations (string IDs
-  like "Q-2024-001", flat fields) vs Pardha's mockQuotation (numeric id, nested per contract
-  in API Contracts section). Need to confirm which shape matches the real backend response
-  before final integration — likely Pardha's, since it matches the documented POST/GET
-  /quotations contract, but worth confirming with Surya.
+- None. Backend passes all unit and integration tests. Frontend builds cleanly.

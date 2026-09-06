@@ -2,7 +2,7 @@
 // Location: frontend/src/components/CustomerNegotiation.jsx
 
 import React, { useState, useEffect } from "react";
-import { fetchQuotationDetail, submitNegotiation } from "../services/mockApi";
+import { fetchQuotationDetail, submitNegotiation, confirmQuotation } from "../services/mockApi";
 
 const CustomerNegotiation = ({ quotationId }) => {
   const [quotation, setQuotation] = useState(null);
@@ -11,6 +11,9 @@ const CustomerNegotiation = ({ quotationId }) => {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [expandedLine, setExpandedLine] = useState(null);
+
+  const [confirming, setConfirming] = useState(false);
+  const [confirmationNotice, setConfirmationNotice] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -21,6 +24,31 @@ const CustomerNegotiation = ({ quotationId }) => {
   });
 
   const [validation, setValidation] = useState({});
+
+  const handleConfirmQuotation = async () => {
+    try {
+      setConfirming(true);
+      setError(null);
+      const res = await confirmQuotation(quotationId, "Customer");
+      const updatedQuote = res.data;
+      setQuotation({ ...updatedQuote });
+      if (updatedQuote.status === "REAPPROVAL_REQUIRED" || updatedQuote.status === "PENDING_APPROVAL") {
+        setConfirmationNotice({
+          type: "warning",
+          message: "Terms exceed approval thresholds. Quotation has automatically re-entered the Sales Manager & Finance approval flow.",
+        });
+      } else {
+        setConfirmationNotice({
+          type: "success",
+          message: "Quotation confirmed! Order terms accepted and proceeding directly to fulfillment.",
+        });
+      }
+    } catch (err) {
+      setError(err.message || "Failed to confirm quotation");
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   useEffect(() => {
     const loadQuotation = async () => {
@@ -165,10 +193,23 @@ const CustomerNegotiation = ({ quotationId }) => {
 
       {/* Current Quotation Summary */}
       <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-          <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-          Current Quotation Details
-        </h2>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+            Current Quotation Details
+          </h2>
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border ${
+            quotation?.status === "CONFIRMED"
+              ? "bg-green-500/20 text-green-300 border-green-500/40"
+              : quotation?.status === "REAPPROVAL_REQUIRED"
+              ? "bg-red-500/20 text-red-300 border-red-500/40"
+              : quotation?.status === "NEGOTIATION"
+              ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+              : "bg-blue-500/20 text-blue-300 border-blue-500/40"
+          }`}>
+            Status: {quotation?.status || "SENT"}
+          </span>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -411,28 +452,53 @@ const CustomerNegotiation = ({ quotationId }) => {
           </p>
         </div>
 
+        {/* Confirmation Notice Banner */}
+        {confirmationNotice && (
+          <div
+            className={`rounded-xl p-4 border ${
+              confirmationNotice.type === "warning"
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                : "bg-green-500/10 border-green-500/30 text-green-300"
+            } animate-in fade-in duration-300`}
+          >
+            <p className="font-semibold text-sm">
+              {confirmationNotice.type === "warning" ? "⚠️ Re-Approval Required" : "✓ Quotation Confirmed"}
+            </p>
+            <p className="text-xs mt-1">{confirmationNotice.message}</p>
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex gap-3 pt-4">
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
           <button
             type="submit"
-            disabled={submitting}
-            className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:from-gray-600 disabled:to-gray-700 disabled:opacity-50 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
+            disabled={submitting || confirming}
+            className="flex-1 px-6 py-3 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-500/40 disabled:opacity-50 font-semibold rounded-lg transition-all duration-200"
           >
             {submitting ? (
               <span className="flex items-center justify-center gap-2">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Submitting...
+                Submitting Request...
               </span>
             ) : (
-              "✓ Submit Negotiation Request"
+              "✉ Submit Negotiation Request"
             )}
           </button>
 
           <button
             type="button"
-            className="flex-1 px-6 py-3 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 font-semibold rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-all duration-200"
+            onClick={handleConfirmQuotation}
+            disabled={confirming || submitting}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:from-gray-600 disabled:to-gray-700 disabled:opacity-50 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
           >
-            Cancel
+            {confirming ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Confirming...
+              </span>
+            ) : (
+              "✓ Confirm Quotation"
+            )}
           </button>
         </div>
       </form>
